@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { getSiteUrl } from "./config";
+import { getSiteUrl, safeInternalPath } from "./config";
 
 describe("getSiteUrl", () => {
   afterEach(() => vi.unstubAllEnvs());
@@ -18,5 +18,40 @@ describe("getSiteUrl", () => {
   it("allows HTTPS for public hosts", () => {
     vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://rally.example");
     expect(getSiteUrl().toString()).toBe("https://rally.example/");
+  });
+});
+
+describe("safeInternalPath", () => {
+  it.each([
+    "/app",
+    "/tasks",
+    "/goals",
+    "/history",
+    "/settings",
+    "/auth/reset-password",
+    "/join/" + "a".repeat(64),
+    "/app?workspace=aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+  ])("allows a known internal destination: %s", (path) => {
+    expect(safeInternalPath(path)).toBe(path);
+  });
+
+  it.each([
+    null,
+    "",
+    "//evil.example",
+    "/\\\\evil.example",
+    "/\\nevil.example",
+    "/\\revil.example",
+    "/\\tevil.example",
+    "/\\u0000evil.example",
+    "/app#//evil.example",
+    "/app?next=https://evil.example",
+    "/app?workspace=not-a-uuid",
+    "/unknown",
+    "https://evil.example",
+    "/join/invalid",
+    "/app??workspace=aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+  ])("rejects unsafe or unsupported destination: %s", (path) => {
+    expect(safeInternalPath(path)).toBe("/app");
   });
 });
