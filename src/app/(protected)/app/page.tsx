@@ -80,16 +80,27 @@ export default async function DashboardPage({
     <div className="page-wrap">
       <header className="page-heading page-heading--spread">
         <div>
-          <p className="eyebrow">{workspace.name.toUpperCase()} · {data.challenge.status?.toUpperCase()}</p>
+            <p className="eyebrow">{workspace.name.toUpperCase()} · {data.challenge.status === "completed" ? "COMPLETED" : data.challenge.status?.toUpperCase()}</p>
           <h1>Today, together.</h1>
           <p>{data.challenge.title}{data.challenge.description ? ` · ${data.challenge.description}` : ""}</p>
         </div>
         <div className="challenge-day-stamp">
-          <span className="mono-label">{data.challenge.status === "active" ? "CHALLENGE DAY" : data.challenge.status === "upcoming" ? "STARTS" : "ENDED"}</span>
+          <span className="mono-label">{data.challenge.status === "active" ? "CHALLENGE DAY" : data.challenge.status === "upcoming" ? "STARTS" : "COMPLETED"}</span>
           <strong>{data.challenge.status === "active" ? data.challenge.day_number : data.challenge.status === "upcoming" ? data.challenge.start_date : data.challenge.end_date}</strong>
           {data.challenge.status === "active" && <span className="mono-label">{data.challenge.days_remaining} DAYS LEFT</span>}
         </div>
       </header>
+
+      {data.challenge.status === "completed" && (
+        <section className="challenge-complete-note" aria-label="Challenge complete">
+          <p>This challenge is complete. Check-ins, goals, and history remain available.</p>
+          {workspace.role === "owner" ? (
+            <Link className="text-link" href={`/settings?workspace=${encodeURIComponent(workspace.id)}#challenge-settings-heading`}>Plan the next challenge <span aria-hidden="true">↗</span></Link>
+          ) : (
+            <p className="quiet-copy">A workspace owner can set up the next challenge.</p>
+          )}
+        </section>
+      )}
 
       <div className="dashboard-grid">
         <section className="dashboard-primary">
@@ -99,8 +110,8 @@ export default async function DashboardPage({
         <aside className="dashboard-side">
           <StreakSection data={data} currentUserId={user.id} />
           <CalendarStrip today={data.today} startDate={data.challenge.start_date} endDate={data.challenge.end_date} dates={data.calendarDates} />
-          <OpenTasksSection tasks={data.openTasks} memberProfiles={data.workspaceMembers} />
-          <ActiveGoalsSection goals={data.activeGoals} memberProfiles={data.workspaceMembers} />
+          <OpenTasksSection tasks={data.openTasks} memberProfiles={data.workspaceMembers} workspaceId={workspace.id} />
+          <ActiveGoalsSection goals={data.activeGoals} memberProfiles={data.workspaceMembers} workspaceId={workspace.id} />
         </aside>
       </div>
 

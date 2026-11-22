@@ -4,12 +4,14 @@
 
 ## What is in V1
 
-- Email-confirmed signup, sign-in, sign-out, password recovery, and profile editing.
+- Email-confirmed signup, sign-in, confirmation resend, sign-out, password recovery, and profile editing.
 - Multiple timezoned workspaces, owner/member roles, private one-time or multi-use invites, and workspace switching.
 - Inclusive-date challenges with a suggested 60-day starting range.
 - One challenge-local check-in per member per day, current-day edits, team activity, history, streaks, and consistency.
-- Member-owned goals and tasks with status changes, completion, reopening, and deletion.
+- Member-owned goals with progress history, and tasks assignable to workspace members. Both support status changes and recovery from recently deleted items.
 - Responsive dashboard, history, and workspace/account settings.
+
+V1 keeps check-ins focused and does not include comments or reactions. Real-time delivery, chat, push notifications, email reminders, and background jobs are intentionally deferred.
 
 ## Local setup
 
@@ -66,6 +68,7 @@ The database and browser tests use the local Supabase stack. Playwright exercise
 - `src/lib/data/` is the server-side read layer. Server actions validate inputs with Zod; PostgreSQL and RLS enforce record ownership and workspace roles.
 - Invitations store only SHA-256 token hashes. Authenticated redemption checks expiry, revocation, remaining uses, and existing membership atomically.
 - Check-in dates are assigned by PostgreSQL in the challenge timezone. Unique constraints and database triggers prevent duplicates, backdating, future dates, and edits to another member's record.
+- Goal progress history is append-only. Goals and tasks use soft deletion so members can restore accidental removals.
 - Authenticated pages are dynamic and excluded from indexing. No service-role credential is shipped to browser code.
 
 See [docs/design/rally-v1.md](docs/design/rally-v1.md) for the design direction, architecture, data model, and release boundary.

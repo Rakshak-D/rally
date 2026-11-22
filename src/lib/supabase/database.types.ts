@@ -63,16 +63,48 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
-                },"goals": {
+                },"goal_progress_history": {
                   Row: {
-                    "challenge_id": string,"created_at": string,"description": string,"id": string,"owner_id": string,"status": Database["public"]['Enums']["goal_status"],"title": string,"updated_at": string,"workspace_id": string
+                    "changed_by": string | null,"goal_id": string,"id": string,"progress_current": number,"progress_target": number | null,"progress_unit": string | null,"recorded_at": string,"workspace_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "challenge_id": string,"created_at"?: string,"description"?: string,"id"?: string,"owner_id"?: string,"status"?: Database["public"]['Enums']["goal_status"],"title": string,"updated_at"?: string,"workspace_id": string
+                    "changed_by"?: string | null,"goal_id": string,"id"?: string,"progress_current": number,"progress_target"?: number | null,"progress_unit"?: string | null,"recorded_at"?: string,"workspace_id": string
                   }
                   Update: {
-                    "challenge_id"?: string,"created_at"?: string,"description"?: string,"id"?: string,"owner_id"?: string,"status"?: Database["public"]['Enums']["goal_status"],"title"?: string,"updated_at"?: string,"workspace_id"?: string
+                    "changed_by"?: string | null,"goal_id"?: string,"id"?: string,"progress_current"?: number,"progress_target"?: number | null,"progress_unit"?: string | null,"recorded_at"?: string,"workspace_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "goal_progress_history_changed_by_fkey"
+      columns: ["changed_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "goal_progress_history_goal_id_fkey"
+      columns: ["goal_id"]
+isOneToOne: false
+      referencedRelation: "goals"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "goal_progress_history_workspace_id_fkey"
+      columns: ["workspace_id"]
+isOneToOne: false
+      referencedRelation: "workspaces"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"goals": {
+                  Row: {
+                    "challenge_id": string,"created_at": string,"deleted_at": string | null,"description": string,"id": string,"owner_id": string,"progress_current": number,"progress_target": number | null,"progress_unit": string | null,"status": Database["public"]['Enums']["goal_status"],"title": string,"updated_at": string,"workspace_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "challenge_id": string,"created_at"?: string,"deleted_at"?: string | null,"description"?: string,"id"?: string,"owner_id"?: string,"progress_current"?: number,"progress_target"?: number | null,"progress_unit"?: string | null,"status"?: Database["public"]['Enums']["goal_status"],"title": string,"updated_at"?: string,"workspace_id": string
+                  }
+                  Update: {
+                    "challenge_id"?: string,"created_at"?: string,"deleted_at"?: string | null,"description"?: string,"id"?: string,"owner_id"?: string,"progress_current"?: number,"progress_target"?: number | null,"progress_unit"?: string | null,"status"?: Database["public"]['Enums']["goal_status"],"title"?: string,"updated_at"?: string,"workspace_id"?: string
                   }
                   Relationships: [
                     {
@@ -117,17 +149,23 @@ isOneToOne: false
                   ]
                 },"tasks": {
                   Row: {
-                    "challenge_id": string,"created_at": string,"description": string,"due_date": string | null,"id": string,"owner_id": string,"status": Database["public"]['Enums']["task_status"],"title": string,"updated_at": string,"workspace_id": string
+                    "assignee_id": string | null,"challenge_id": string,"created_at": string,"deleted_at": string | null,"description": string,"due_date": string | null,"id": string,"owner_id": string,"status": Database["public"]['Enums']["task_status"],"title": string,"updated_at": string,"workspace_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "challenge_id": string,"created_at"?: string,"description"?: string,"due_date"?: string | null,"id"?: string,"owner_id"?: string,"status"?: Database["public"]['Enums']["task_status"],"title": string,"updated_at"?: string,"workspace_id": string
+                    "assignee_id"?: string | null,"challenge_id": string,"created_at"?: string,"deleted_at"?: string | null,"description"?: string,"due_date"?: string | null,"id"?: string,"owner_id"?: string,"status"?: Database["public"]['Enums']["task_status"],"title": string,"updated_at"?: string,"workspace_id": string
                   }
                   Update: {
-                    "challenge_id"?: string,"created_at"?: string,"description"?: string,"due_date"?: string | null,"id"?: string,"owner_id"?: string,"status"?: Database["public"]['Enums']["task_status"],"title"?: string,"updated_at"?: string,"workspace_id"?: string
+                    "assignee_id"?: string | null,"challenge_id"?: string,"created_at"?: string,"deleted_at"?: string | null,"description"?: string,"due_date"?: string | null,"id"?: string,"owner_id"?: string,"status"?: Database["public"]['Enums']["task_status"],"title"?: string,"updated_at"?: string,"workspace_id"?: string
                   }
                   Relationships: [
                     {
+      foreignKeyName: "tasks_assignee_id_fkey"
+      columns: ["assignee_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
       foreignKeyName: "tasks_challenge_id_workspace_id_fkey"
       columns: ["challenge_id","workspace_id"]
 isOneToOne: false
@@ -302,6 +340,12 @@ isOneToOne: false
                            },
 "save_checkin":
 { Args: { "p_accomplishment": string,"p_challenge_id": string,"p_next_plan": string,"p_notes"?: string }; Returns: Json
+                           },
+"transfer_workspace_ownership":
+{ Args: { "p_new_owner_id": string,"p_workspace_id": string }; Returns: undefined
+                           },
+"update_assigned_task_status":
+{ Args: { "p_status": Database["public"]['Enums']["task_status"],"p_task_id": string }; Returns: boolean
                            }
           }
           Enums: {

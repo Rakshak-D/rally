@@ -1,21 +1,40 @@
 export function getSupabasePublicConfig(): { url: string; key: string } | null {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
   if (!url || !key) return null;
   return { url, key };
 }
 
 export function getSiteUrl(): URL {
-  const value = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-  const url = new URL(value);
-
-  const isLocalHttp = url.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
-  if (url.protocol !== "https:" && !isLocalHttp) {
-    throw new Error("NEXT_PUBLIC_SITE_URL must use HTTPS outside the local machine.");
+  const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  const isProduction = process.env.NODE_ENV === "production";
+  if (!configured) {
+    if (isProduction) throw new Error("NEXT_PUBLIC_SITE_URL must be configured in production.");
+    return new URL("http://localhost:3000");
   }
 
-  return url;
+  let url: URL;
+  try {
+    url = new URL(configured);
+  } catch {
+    throw new Error("NEXT_PUBLIC_SITE_URL must be a valid URL.");
+  }
+
+  if (url.username || url.password || url.pathname !== "/" || url.search || url.hash) {
+    throw new Error("NEXT_PUBLIC_SITE_URL must be a canonical origin without credentials, paths, or query strings.");
+  }
+
+  const isLoopback = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
+  const isLocalHttp = url.protocol === "http:" && isLoopback && !isProduction;
+  if (isProduction && isLoopback) {
+    throw new Error("NEXT_PUBLIC_SITE_URL must use a public HTTPS origin in production.");
+  }
+  if (url.protocol !== "https:" && !isLocalHttp) {
+    throw new Error("NEXT_PUBLIC_SITE_URL must use HTTPS outside local development.");
+  }
+
+  return new URL(url.origin);
 }
 
 export function safeInternalPath(value: string | null, fallback = "/app"): string {

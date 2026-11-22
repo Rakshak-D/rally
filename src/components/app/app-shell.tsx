@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import type { ReactNode } from "react";
+import { useTransition, type ReactNode } from "react";
 
 import { Logo } from "@/components/brand/logo";
 import { signOutAction } from "@/lib/auth/actions";
@@ -30,6 +30,7 @@ export function AppShell({
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [isPending, startTransition] = useTransition();
   const workspaceFromQuery = searchParams.get("workspace");
   const selectedWorkspace = workspaces.find(({ id }) => id === workspaceFromQuery) ?? workspaces[0] ?? null;
 
@@ -38,10 +39,20 @@ export function AppShell({
     return `${path}?workspace=${encodeURIComponent(selectedWorkspace.id)}`;
   }
 
+  function switchWorkspace(workspaceId: string) {
+    if (!workspaces.some((workspace) => workspace.id === workspaceId)) return;
+
+    const destination = navigation.some((item) => item.href === pathname) ? pathname : "/app";
+    const query = new URLSearchParams(searchParams.toString());
+    for (const key of ["workspace", "member", "challenge", "page"]) query.delete(key);
+    query.set("workspace", workspaceId);
+    startTransition(() => router.push(`${destination}?${query.toString()}`, { scroll: false }));
+  }
+
   return (
     <div className="app-frame">
       <aside className="app-sidebar">
-        <div className="sidebar-brand"><Logo href="/app" /></div>
+        <div className="sidebar-brand"><Logo href={hrefFor("/app")} /></div>
         <div className="sidebar-workspace">
           <label className="sidebar-label" htmlFor="workspace-switcher">WORKSPACE</label>
           {workspaces.length > 0 ? (
@@ -50,7 +61,7 @@ export function AppShell({
               className="workspace-select"
               aria-label="Switch workspace"
               value={selectedWorkspace?.id ?? ""}
-              onChange={(event) => router.push(`/app?workspace=${encodeURIComponent(event.target.value)}`)}
+              onChange={(event) => switchWorkspace(event.target.value)}
             >
               {workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}
             </select>
@@ -85,19 +96,22 @@ export function AppShell({
 
       <div className="app-main-column">
         <header className="mobile-topbar">
-          <Logo href="/app" />
+          <Logo href={hrefFor("/app")} />
           {workspaces.length > 0 && (
             <select
               className="workspace-select workspace-select--mobile"
               aria-label="Switch workspace"
               value={selectedWorkspace?.id ?? ""}
-              onChange={(event) => router.push(`/app?workspace=${encodeURIComponent(event.target.value)}`)}
+              onChange={(event) => switchWorkspace(event.target.value)}
             >
               {workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}
             </select>
           )}
         </header>
-        <main className="app-main">{children}</main>
+        <main className="app-main" id="main-content" tabIndex={-1}>
+          {isPending && <p className="route-pending" role="status">Changing workspace…</p>}
+          {children}
+        </main>
         <nav className="mobile-nav" aria-label="Main navigation">
           {navigation.map((item) => {
             const active = item.href === "/app" ? pathname === "/app" : pathname.startsWith(item.href);

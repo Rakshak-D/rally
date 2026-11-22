@@ -23,10 +23,13 @@ export function CheckinEditor({ challengeId, checkin }: { challengeId: string; c
           What I plan to do next
           <textarea className="field-textarea" id="next-plan" name="nextPlan" maxLength={1200} rows={2} placeholder="One next step." defaultValue={checkin?.next_plan ?? ""} required />
         </label>
-        <label className="field-label" htmlFor="checkin-notes">
-          Blockers or notes <span className="field-optional">OPTIONAL</span>
-          <textarea className="field-textarea" id="checkin-notes" name="notes" maxLength={1200} rows={2} placeholder="Anything the group should know?" defaultValue={checkin?.notes ?? ""} />
-        </label>
+        <details className="checkin-notes-disclosure" open={Boolean(checkin?.notes)}>
+          <summary>Add blockers or notes <span className="field-optional">OPTIONAL</span></summary>
+          <label className="field-label" htmlFor="checkin-notes">
+            Blockers or notes
+            <textarea className="field-textarea" id="checkin-notes" name="notes" maxLength={1200} rows={2} placeholder="Anything the group should know?" defaultValue={checkin?.notes ?? ""} />
+          </label>
+        </details>
       </div>
       {state.message && <p className={`form-message form-message--${state.kind}`} role={state.kind === "error" ? "alert" : "status"}>{state.message}</p>}
       <div className="form-row checkin-submit-row">

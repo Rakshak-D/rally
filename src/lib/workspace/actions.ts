@@ -5,10 +5,12 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { getSiteUrl } from "@/lib/config";
+import { safeDatabaseMessage, type DatabaseErrorLike } from "@/lib/data/database-errors";
 import type { ActionState } from "@/lib/forms/state";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { checkinSchema, challengeSchema, goalSchema, taskSchema, updateChallengeSchema, updateGoalSchema, updateTaskSchema } from "@/lib/validation/product";
-import { createInviteSchema, createWorkspaceSchema, inviteTokenSchema, updateProfileSchema, updateWorkspaceSchema } from "@/lib/validation/workspace";
+import { assignedTaskStatusSchema, checkinSchema, challengeSchema, goalSchema, taskSchema, updateChallengeSchema, updateGoalSchema, updateTaskSchema } from "@/lib/validation/product";
+import { createInviteSchema, createWorkspaceSchema, inviteTokenSchema, transferWorkspaceOwnershipSchema, updateProfileSchema, updateWorkspaceSchema } from "@/lib/validation/workspace";
+import { validationFailure } from "@/lib/forms/state";
 
 function readField(formData: FormData, name: string): string | undefined {
   const value = formData.get(name);
@@ -22,8 +24,21 @@ async function authenticatedClient() {
   return { supabase, user: data.user };
 }
 
-function databaseFailure(message: string): ActionState {
-  return { kind: "error", message };
+function databaseFailure(
+  fallback: string,
+  error?: DatabaseErrorLike | null,
+  copy: Partial<{ permission: string; conflict: string; validation: string }> = {},
+): ActionState {
+  if (!error) return { kind: "error", message: fallback };
+  return {
+    kind: "error",
+    message: safeDatabaseMessage(error, {
+      fallback,
+      permission: copy.permission ?? "You do not have permission to make this change.",
+      conflict: copy.conflict ?? fallback,
+      validation: copy.validation ?? fallback,
+    }),
+  };
 }
 
 export async function createWorkspaceAction(
@@ -41,7 +56,7 @@ export async function createWorkspaceAction(
     p_name: parsed.data.name,
     p_timezone: parsed.data.timezone,
   });
-  if (error || !data) return databaseFailure("The workspace could not be created. Try again in a moment.");
+  if (error || !data) return databaseFailure("The workspace could not be created. Try again in a moment.", error);
 
   revalidatePath("/app");
   redirect(`/app?workspace=${encodeURIComponent(data)}`);
@@ -95,7 +110,11 @@ export async function createInviteAction(
     p_expires_at: expiresAt,
     p_max_uses: parsed.data.maxUses,
   });
-  if (error) return databaseFailure("The invitation could not be created. Confirm you are a workspace owner and try again.");
+  if (error) return databaseFailure(
+    "The invitation could not be created. Try again in a moment.",
+    error,
+    { permission: "Only a workspace owner can create invitations." },
+  );
 
   const link = new URL(`/join/${token}`, getSiteUrl()).toString();
   revalidatePath("/settings");
@@ -111,7 +130,7 @@ export async function revokeInviteAction(
 
   const { supabase } = await authenticatedClient();
   const { error } = await supabase.rpc("revoke_invite", { p_invite_id: inviteId });
-  if (error) return databaseFailure("The invitation could not be revoked.");
+  if (error) return databaseFailure("The invitation could not be revoked.", error, { permission: "Only a workspace owner can revoke invitations." });
 
   revalidatePath("/settings");
   return { kind: "success", message: "Invitation revoked." };
@@ -125,8 +144,8 @@ export async function updateProfileAction(
   if (!parsed.success) return databaseFailure("Your name must be between 1 and 80 characters.");
 
   const { supabase, user } = await authenticatedClient();
-  const { error } = await supabase.from("profiles").update({ display_name: parsed.data.displayName }).eq("id", user.id);
-  if (error) return databaseFailure("Your profile could not be updated.");
+  const { data, error } = await supabase.from("profiles").update({ display_name: parsed.data.displayName }).eq("id", user.id).select("id").maybeSingle();
+  if (error || !data) return databaseFailure("Your profile could not be updated.", error);
 
   revalidatePath("/app");
   revalidatePath("/settings");
@@ -145,11 +164,13 @@ export async function updateWorkspaceAction(
   if (!parsed.success) return databaseFailure("Add a workspace name and choose a valid timezone.");
 
   const { supabase } = await authenticatedClient();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("workspaces")
     .update({ name: parsed.data.name, timezone: parsed.data.timezone })
-    .eq("id", parsed.data.workspaceId);
-  if (error) return databaseFailure("Only a workspace owner can change these settings.");
+    .eq("id", parsed.data.workspaceId)
+    .select("id")
+    .maybeSingle();
+  if (error || !data) return databaseFailure("The workspace settings could not be saved.", error, { permission: "Only a workspace owner can change these settings." });
 
   revalidatePath("/app");
   revalidatePath("/settings");
@@ -165,7 +186,7 @@ export async function leaveWorkspaceAction(
 
   const { supabase } = await authenticatedClient();
   const { error } = await supabase.rpc("leave_workspace", { p_workspace_id: workspaceId });
-  if (error) return databaseFailure("Workspace owners must hand off ownership before leaving.");
+  if (error) return databaseFailure("The workspace could not be left.", error, { permission: "Workspace owners must hand off ownership before leaving." });
 
   revalidatePath("/app");
   redirect("/app");
@@ -184,7 +205,7 @@ export async function removeWorkspaceMemberAction(
     p_workspace_id: workspaceId,
     p_user_id: userId,
   });
-  if (error) return databaseFailure("Only an owner can remove a workspace member.");
+  if (error) return databaseFailure("The member could not be removed.", error, { permission: "Only a workspace owner can remove a member." });
 
   revalidatePath("/settings");
   revalidatePath("/app");
@@ -224,12 +245,15 @@ export async function createChallengeAction(
     })
     .select("id")
     .single();
-  if (error || !data) {
-    const message = error?.code === "23P01"
-      ? "Those dates overlap another challenge in this workspace."
-      : "Only a workspace owner can start a challenge. Check your dates and try again.";
-    return databaseFailure(message);
-  }
+  if (error || !data) return databaseFailure(
+    "The challenge could not be created. Check the dates and try again.",
+    error,
+    {
+      permission: "Only a workspace owner can start a challenge.",
+      conflict: "Those dates overlap another challenge in this workspace.",
+      validation: "Check the title and challenge dates.",
+    },
+  );
 
   revalidatePath("/app");
   redirect(`/app?workspace=${encodeURIComponent(parsed.data.workspaceId)}`);
@@ -258,7 +282,7 @@ export async function updateChallengeAction(
     .maybeSingle();
   if (!challenge) return databaseFailure("Choose a challenge you can manage.");
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("challenges")
     .update({
       title: parsed.data.title,
@@ -268,9 +292,15 @@ export async function updateChallengeAction(
       timezone: challenge.timezone,
     })
     .eq("id", parsed.data.challengeId)
-    .eq("workspace_id", parsed.data.workspaceId);
-  if (error) {
-    return databaseFailure(error.code === "23P01" ? "Those dates overlap another challenge." : "Only a workspace owner can edit this challenge.");
+    .eq("workspace_id", parsed.data.workspaceId)
+    .select("id")
+    .maybeSingle();
+  if (error || !data) {
+    return databaseFailure("The challenge could not be updated.", error, {
+      permission: "Only a workspace owner can edit this challenge.",
+      conflict: "Those dates overlap another challenge.",
+      validation: "Check the title and challenge dates.",
+    });
   }
 
   revalidatePath("/app");
@@ -295,16 +325,12 @@ export async function saveCheckinAction(
     p_challenge_id: parsed.data.challengeId,
     p_accomplishment: parsed.data.accomplishment,
     p_next_plan: parsed.data.nextPlan,
-    ...(parsed.data.notes ? { p_notes: parsed.data.notes } : {}),
+    p_notes: parsed.data.notes,
   });
-  if (error) {
-    const message = error.code === "23505"
-      ? "Today's check-in was just saved. Refresh to edit it."
-      : error.code === "22023"
-        ? "The challenge is outside its check-in dates."
-        : "Today's check-in could not be saved. Refresh and try again.";
-    return databaseFailure(message);
-  }
+  if (error) return databaseFailure("Today's check-in could not be saved. Refresh and try again.", error, {
+    conflict: "Today's check-in was just saved. Refresh to edit it.",
+    validation: "The challenge is outside its check-in dates.",
+  });
 
   const status = data && typeof data === "object" && !Array.isArray(data) ? data.status : null;
   if (status !== "created" && status !== "updated") {
@@ -326,8 +352,11 @@ export async function createGoalAction(
     title: readField(formData, "title"),
     description: readField(formData, "description") ?? "",
     status: readField(formData, "status") ?? "active",
+    progressCurrent: readField(formData, "progressCurrent"),
+    progressTarget: readField(formData, "progressTarget"),
+    progressUnit: readField(formData, "progressUnit"),
   });
-  if (!parsed.success) return databaseFailure("Add a goal title before saving.");
+  if (!parsed.success) return validationFailure("Review the goal fields and try again.", parsed.error.issues);
 
   const { supabase } = await authenticatedClient();
   const { error } = await supabase.from("goals").insert({
@@ -336,8 +365,11 @@ export async function createGoalAction(
     title: parsed.data.title,
     description: parsed.data.description,
     status: parsed.data.status,
+    progress_current: parsed.data.progressCurrent,
+    progress_target: parsed.data.progressTarget,
+    progress_unit: parsed.data.progressUnit,
   });
-  if (error) return databaseFailure("The goal could not be created in this workspace.");
+  if (error) return databaseFailure("The goal could not be created in this workspace.", error);
 
   revalidatePath("/app");
   revalidatePath("/goals");
@@ -353,16 +385,22 @@ export async function updateGoalAction(
     title: readField(formData, "title"),
     description: readField(formData, "description") ?? "",
     status: readField(formData, "status"),
+    progressCurrent: readField(formData, "progressCurrent"),
+    progressTarget: readField(formData, "progressTarget"),
+    progressUnit: readField(formData, "progressUnit"),
   });
-  if (!parsed.success) return databaseFailure("Review this goal and try again.");
+  if (!parsed.success) return validationFailure("Review the goal fields and try again.", parsed.error.issues);
 
   const { supabase } = await authenticatedClient();
-  const { error } = await supabase.from("goals").update({
+  const { data, error } = await supabase.from("goals").update({
     title: parsed.data.title,
     description: parsed.data.description,
     status: parsed.data.status,
-  }).eq("id", parsed.data.goalId);
-  if (error) return databaseFailure("This goal could not be updated.");
+    progress_current: parsed.data.progressCurrent,
+    progress_target: parsed.data.progressTarget,
+    progress_unit: parsed.data.progressUnit,
+  }).eq("id", parsed.data.goalId).select("id").maybeSingle();
+  if (error || !data) return databaseFailure("This goal could not be updated.", error);
 
   revalidatePath("/app");
   revalidatePath("/goals");
@@ -376,13 +414,24 @@ export async function deleteGoalAction(
   const goalId = readField(formData, "goalId");
   if (!goalId) return databaseFailure("Select a goal to delete.");
 
-  const { supabase } = await authenticatedClient();
-  const { error } = await supabase.from("goals").delete().eq("id", goalId);
-  if (error) return databaseFailure("This goal could not be deleted.");
+  const { supabase, user } = await authenticatedClient();
+  const { data, error } = await supabase.from("goals").update({ deleted_at: new Date().toISOString() }).eq("id", goalId).eq("owner_id", user.id).is("deleted_at", null).select("id").maybeSingle();
+  if (error || !data) return databaseFailure("This goal could not be removed.", error);
 
   revalidatePath("/app");
   revalidatePath("/goals");
-  return { kind: "success", message: "Goal deleted." };
+  return { kind: "success", message: "Goal moved to deleted items. You can restore it from Goals." };
+}
+
+export async function restoreGoalAction(_previous: ActionState, formData: FormData): Promise<ActionState> {
+  const goalId = readField(formData, "goalId");
+  if (!goalId) return databaseFailure("Select a goal to restore.");
+  const { supabase, user } = await authenticatedClient();
+  const { data, error } = await supabase.from("goals").update({ deleted_at: null }).eq("id", goalId).eq("owner_id", user.id).not("deleted_at", "is", null).select("id").maybeSingle();
+  if (error || !data) return databaseFailure("This goal could not be restored.", error);
+  revalidatePath("/goals");
+  revalidatePath("/app");
+  return { kind: "success", message: "Goal restored." };
 }
 
 export async function createTaskAction(
@@ -396,8 +445,9 @@ export async function createTaskAction(
     description: readField(formData, "description") ?? "",
     dueDate: readField(formData, "dueDate"),
     status: readField(formData, "status") ?? "todo",
+    assigneeId: readField(formData, "assigneeId"),
   });
-  if (!parsed.success) return databaseFailure("Add a task title and use a real due date.");
+  if (!parsed.success) return validationFailure("Review the task fields and try again.", parsed.error.issues);
 
   const { supabase } = await authenticatedClient();
   const { error } = await supabase.from("tasks").insert({
@@ -407,8 +457,9 @@ export async function createTaskAction(
     description: parsed.data.description,
     due_date: parsed.data.dueDate,
     status: parsed.data.status,
+    assignee_id: parsed.data.assigneeId,
   });
-  if (error) return databaseFailure("The task could not be created in this workspace.");
+  if (error) return databaseFailure("The task could not be created in this workspace.", error);
 
   revalidatePath("/app");
   revalidatePath("/tasks");
@@ -425,17 +476,19 @@ export async function updateTaskAction(
     description: readField(formData, "description") ?? "",
     dueDate: readField(formData, "dueDate"),
     status: readField(formData, "status"),
+    assigneeId: readField(formData, "assigneeId"),
   });
-  if (!parsed.success) return databaseFailure("Review this task and try again.");
+  if (!parsed.success) return validationFailure("Review the task fields and try again.", parsed.error.issues);
 
-  const { supabase } = await authenticatedClient();
-  const { error } = await supabase.from("tasks").update({
+  const { supabase, user } = await authenticatedClient();
+  const { data, error } = await supabase.from("tasks").update({
     title: parsed.data.title,
     description: parsed.data.description,
     due_date: parsed.data.dueDate,
     status: parsed.data.status,
-  }).eq("id", parsed.data.taskId);
-  if (error) return databaseFailure("This task could not be updated.");
+    assignee_id: parsed.data.assigneeId,
+  }).eq("id", parsed.data.taskId).eq("owner_id", user.id).is("deleted_at", null).select("id").maybeSingle();
+  if (error || !data) return databaseFailure("This task could not be updated.", error);
 
   revalidatePath("/app");
   revalidatePath("/tasks");
@@ -449,11 +502,59 @@ export async function deleteTaskAction(
   const taskId = readField(formData, "taskId");
   if (!taskId) return databaseFailure("Select a task to delete.");
 
-  const { supabase } = await authenticatedClient();
-  const { error } = await supabase.from("tasks").delete().eq("id", taskId);
-  if (error) return databaseFailure("This task could not be deleted.");
+  const { supabase, user } = await authenticatedClient();
+  const { data, error } = await supabase.from("tasks").update({ deleted_at: new Date().toISOString() }).eq("id", taskId).eq("owner_id", user.id).is("deleted_at", null).select("id").maybeSingle();
+  if (error || !data) return databaseFailure("This task could not be removed.", error);
 
   revalidatePath("/app");
   revalidatePath("/tasks");
-  return { kind: "success", message: "Task deleted." };
+  return { kind: "success", message: "Task moved to deleted items. You can restore it from Tasks." };
+}
+
+export async function restoreTaskAction(_previous: ActionState, formData: FormData): Promise<ActionState> {
+  const taskId = readField(formData, "taskId");
+  if (!taskId) return databaseFailure("Select a task to restore.");
+  const { supabase, user } = await authenticatedClient();
+  const { data, error } = await supabase.from("tasks").update({ deleted_at: null }).eq("id", taskId).eq("owner_id", user.id).not("deleted_at", "is", null).select("id").maybeSingle();
+  if (error || !data) return databaseFailure("This task could not be restored.", error);
+  revalidatePath("/tasks");
+  revalidatePath("/app");
+  return { kind: "success", message: "Task restored." };
+}
+
+export async function updateAssignedTaskStatusAction(_previous: ActionState, formData: FormData): Promise<ActionState> {
+  const parsed = assignedTaskStatusSchema.safeParse({
+    taskId: readField(formData, "taskId"),
+    status: readField(formData, "status"),
+  });
+  if (!parsed.success) return validationFailure("Choose a valid task status.", parsed.error.issues);
+  const { supabase } = await authenticatedClient();
+  const { error } = await supabase.rpc("update_assigned_task_status", {
+    p_task_id: parsed.data.taskId,
+    p_status: parsed.data.status,
+  });
+  if (error) return databaseFailure("The assigned task could not be updated.", error);
+  revalidatePath("/tasks");
+  revalidatePath("/app");
+  return { kind: "success", message: "Task status updated." };
+}
+
+export async function transferWorkspaceOwnershipAction(_previous: ActionState, formData: FormData): Promise<ActionState> {
+  const parsed = transferWorkspaceOwnershipSchema.safeParse({
+    workspaceId: readField(formData, "workspaceId"),
+    newOwnerId: readField(formData, "newOwnerId"),
+  });
+  if (!parsed.success) return validationFailure("Choose a current workspace member.", parsed.error.issues);
+  const { supabase } = await authenticatedClient();
+  const { error } = await supabase.rpc("transfer_workspace_ownership", {
+    p_workspace_id: parsed.data.workspaceId,
+    p_new_owner_id: parsed.data.newOwnerId,
+  });
+  if (error) return databaseFailure("Workspace ownership could not be transferred.", error, {
+    permission: "Only the current workspace owner can transfer ownership.",
+    validation: "Choose another current workspace member.",
+  });
+  revalidatePath("/settings");
+  revalidatePath("/app");
+  return { kind: "success", message: "Ownership transferred. You are now a workspace member." };
 }

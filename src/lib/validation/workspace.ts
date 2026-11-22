@@ -31,3 +31,11 @@ export const updateWorkspaceSchema = z.object({
   name: z.string().trim().min(1).max(80),
   timezone: z.string().trim().min(1).max(100).refine(isValidTimezone, "Choose a valid timezone."),
 });
+
+export const transferWorkspaceOwnershipSchema = z.object({
+  workspaceId: z.uuid(),
+  newOwnerId: z.uuid(),
+}).refine((values) => values.workspaceId !== values.newOwnerId, {
+  message: "Choose another workspace member.",
+  path: ["newOwnerId"],
+});

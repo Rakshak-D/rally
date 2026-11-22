@@ -24,11 +24,10 @@ const COMMON_TIMEZONES = [
 ];
 
 export function TimezoneSelect({ id, name, value }: { id: string; name: string; value?: string }) {
-  const local = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const options = [...new Set([value, local, ...COMMON_TIMEZONES].filter((timezone): timezone is string => Boolean(timezone)))];
+  const options = [...new Set([value, "UTC", ...COMMON_TIMEZONES].filter((timezone): timezone is string => Boolean(timezone)))];
 
   return (
-    <select className="field-select" id={id} name={name} defaultValue={value ?? local} required>
+    <select className="field-select" id={id} name={name} defaultValue={value ?? "UTC"} required>
       {options.map((timezone) => <option key={timezone} value={timezone}>{timezone}</option>)}
     </select>
   );

@@ -8,8 +8,8 @@ type WorkspaceRow = Tables<"workspaces">;
 type MembershipRow = Pick<Tables<"workspace_members">, "workspace_id" | "role" | "created_at">;
 type ChallengeRow = Tables<"challenge_status">;
 type ProfileRow = Pick<Tables<"profiles">, "id" | "display_name">;
-type TaskRow = Pick<Tables<"tasks">, "id" | "title" | "description" | "status" | "due_date" | "owner_id">;
-type GoalRow = Pick<Tables<"goals">, "id" | "title" | "description" | "status" | "owner_id">;
+type TaskRow = Pick<Tables<"tasks">, "id" | "title" | "description" | "status" | "due_date" | "owner_id" | "assignee_id" | "deleted_at">;
+type GoalRow = Pick<Tables<"goals">, "id" | "title" | "description" | "status" | "owner_id" | "progress_current" | "progress_target" | "progress_unit" | "deleted_at">;
 type CheckinRow = Pick<Tables<"checkins">, "id" | "user_id" | "checkin_date" | "accomplishment" | "next_plan" | "notes" | "created_at">;
 
 export type WorkspaceOption = WorkspaceRow & { role: Enums<"workspace_role"> };
@@ -191,11 +191,12 @@ export async function getWorkspaceDashboard(
       .eq("challenge_id", challenge.id).order("checkin_date", { ascending: false }).order("created_at", { ascending: false }).limit(8),
     supabase.from("checkins").select("checkin_date")
       .eq("challenge_id", challenge.id).eq("user_id", userId).gte("checkin_date", windowStart).lte("checkin_date", today).order("checkin_date", { ascending: true }).limit(35),
-    supabase.from("tasks").select("id, title, description, status, due_date, owner_id")
+    supabase.from("tasks").select("id, title, description, status, due_date, owner_id, assignee_id, deleted_at")
       .eq("workspace_id", selectedWorkspace.id).eq("challenge_id", challenge.id).neq("status", "completed")
+      .is("deleted_at", null)
       .order("due_date", { ascending: true, nullsFirst: false }).limit(8),
-    supabase.from("goals").select("id, title, description, status, owner_id")
-      .eq("workspace_id", selectedWorkspace.id).eq("challenge_id", challenge.id).eq("status", "active")
+    supabase.from("goals").select("id, title, description, status, owner_id, progress_current, progress_target, progress_unit, deleted_at")
+      .eq("workspace_id", selectedWorkspace.id).eq("challenge_id", challenge.id).eq("status", "active").is("deleted_at", null)
       .order("updated_at", { ascending: false }).limit(6),
   ]);
   failOnError(progressResult.error, "Team progress");

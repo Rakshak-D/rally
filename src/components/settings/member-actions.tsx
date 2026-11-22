@@ -45,7 +45,7 @@ function RemoveMemberForm({ workspaceId, userId }: { workspaceId: string; userId
   const [state, formAction, pending] = useActionState(removeWorkspaceMemberAction, initialActionState);
 
   return (
-    <form action={formAction} className="member-action-form">
+    <form action={formAction} className="member-action-form" onSubmit={(event) => { if (!window.confirm("Remove this member from the workspace? Their shared progress history will remain.")) event.preventDefault(); }}>
       <input type="hidden" name="workspaceId" value={workspaceId} />
       <input type="hidden" name="userId" value={userId} />
       <button className="button button--quiet" type="submit" disabled={pending}>{pending ? "Removing…" : "Remove"}</button>
@@ -58,7 +58,7 @@ function LeaveWorkspaceForm({ workspaceId }: { workspaceId: string }) {
   const [state, formAction, pending] = useActionState(leaveWorkspaceAction, initialActionState);
 
   return (
-    <form action={formAction} className="leave-workspace-form">
+    <form action={formAction} className="leave-workspace-form" onSubmit={(event) => { if (!window.confirm("Leave this workspace? Your history stays with the group, and you can rejoin with a new invitation.")) event.preventDefault(); }}>
       <input type="hidden" name="workspaceId" value={workspaceId} />
       {state.message && <p className={`form-message form-message--${state.kind}`} role={state.kind === "error" ? "alert" : "status"}>{state.message}</p>}
       <button className="button button--secondary" type="submit" disabled={pending}>{pending ? "Leaving…" : "Leave workspace"}</button>

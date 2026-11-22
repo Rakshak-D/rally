@@ -6,6 +6,7 @@ import { CreateInviteForm, InviteList } from "@/components/settings/invite-forms
 import { CreateChallengeForm } from "@/components/workspace/create-challenge-form";
 import { CreateWorkspaceForm } from "@/components/workspace/create-workspace-form";
 import { MemberList } from "@/components/settings/member-actions";
+import { OwnershipTransferForm } from "@/components/settings/ownership-transfer-form";
 import { ProfileForm } from "@/components/settings/profile-form";
 import { WorkspaceForm } from "@/components/settings/workspace-form";
 import { requireUser } from "@/lib/auth/current-user";
@@ -87,7 +88,7 @@ export default async function SettingsPage({
                 <details className="challenge-settings-item" key={challenge.id}>
                   <summary>
                     <span><strong>{challenge.title}</strong><small>{challenge.start_date} — {challenge.end_date}</small></span>
-                    <span className={`status-chip status-chip--${challenge.status}`}>{challenge.status}</span>
+                    <span className={`status-chip status-chip--${challenge.status}`}>{challenge.status === "completed" ? "Completed" : challenge.status === "upcoming" ? "Upcoming" : "Active"}</span>
                   </summary>
                   <ChallengeSettingsForm challenge={challenge} canEdit={isOwner} />
                 </details>
@@ -106,6 +107,7 @@ export default async function SettingsPage({
           <section className="settings-panel" aria-labelledby="members-heading">
             <header className="settings-panel-header"><div><p className="eyebrow">04 · PEOPLE</p><h2 id="members-heading">Workspace members</h2></div><span className="team-count">{data.workspaceMembers.length}</span></header>
             <MemberList members={data.workspaceMembers} roles={data.memberRoles} currentUserId={user.id} workspaceId={workspace.id} isOwner={isOwner} />
+            {isOwner && <div className="ownership-transfer"><h3>Change the owner</h3><OwnershipTransferForm workspaceId={workspace.id} currentUserId={user.id} members={data.workspaceMembers} /></div>}
           </section>
 
           {isOwner && (

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-import { CreateTaskForm, EditTaskForm } from "@/components/product/goal-task-forms";
+import { AssignedTaskStatusForm, CreateTaskForm, DeletedTaskList, EditTaskForm } from "@/components/product/goal-task-forms";
 import { requireUser } from "@/lib/auth/current-user";
 import { getWorkspaceDashboard } from "@/lib/data/dashboard";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -18,11 +18,12 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
     return <section className="empty-state"><p className="eyebrow">TASKS</p><h2>Give the next step a place.</h2><p>Create or join a workspace from Today to begin.</p></section>;
   }
 
-  const [{ data: tasks, error }, { data: challengeRows, error: challengeError }] = await Promise.all([
-    supabase.from("tasks").select("*").eq("workspace_id", workspace.id).order("due_date", { ascending: true, nullsFirst: false }).order("updated_at", { ascending: false }).limit(100),
+  const [{ data: tasks, error }, { data: deletedTasks, error: deletedError }, { data: challengeRows, error: challengeError }] = await Promise.all([
+    supabase.from("tasks").select("*").eq("workspace_id", workspace.id).is("deleted_at", null).order("due_date", { ascending: true, nullsFirst: false }).order("updated_at", { ascending: false }).limit(100),
+    supabase.from("tasks").select("*").eq("workspace_id", workspace.id).not("deleted_at", "is", null).order("deleted_at", { ascending: false }).limit(50),
     supabase.from("challenge_status").select("id, title, status").eq("workspace_id", workspace.id).order("start_date", { ascending: false }),
   ]);
-  if (error || challengeError) throw new Error("Tasks could not be loaded.");
+  if (error || deletedError || challengeError) throw new Error("Tasks could not be loaded.");
 
   const writableChallenge = challengeRows?.find((challenge) => challenge.status === "active") ?? challengeRows?.find((challenge) => challenge.status === "upcoming");
   const names = new Map(data.workspaceMembers.map((member) => [member.id, member.display_name]));
@@ -37,7 +38,7 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
       {writableChallenge && (
         <details className="create-record-details">
           <summary>Add a task <span aria-hidden="true">＋</span></summary>
-          <div className="create-record-body"><CreateTaskForm workspaceId={workspace.id} challengeId={writableChallenge.id} /></div>
+          <div className="create-record-body"><CreateTaskForm workspaceId={workspace.id} challengeId={writableChallenge.id} members={data.workspaceMembers} /></div>
         </details>
       )}
       {!writableChallenge && <p className="form-message form-message--info">Tasks can be added when a challenge is active or upcoming.</p>}
@@ -48,16 +49,19 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
         <ul className="records-list">
           {tasks.map((task) => (
             <li className={`record-card${task.status === "completed" ? " record-card--complete" : ""}`} key={task.id}>
-              <div className="record-card-heading"><span className={`status-chip status-chip--${task.status}`}>{task.status.replace("_", " ")}</span><span className="record-owner">{task.owner_id === user.id ? "You" : names.get(task.owner_id) ?? "Rally member"}</span></div>
+              <div className="record-card-heading"><span className={`status-chip status-chip--${task.status}`}>{task.status === "in_progress" ? "In progress" : task.status === "todo" ? "To do" : "Completed"}</span><span className="record-owner">{task.owner_id === user.id ? "Created by you" : `Created by ${names.get(task.owner_id) ?? "Rally member"}`}</span></div>
               <h2>{task.title}</h2>
               {task.description && <p>{task.description}</p>}
+              <p className="task-assignee">{task.assignee_id ? `Assigned to ${names.get(task.assignee_id) ?? "Rally member"}` : "Unassigned"}</p>
               {task.due_date && <time className="record-due" dateTime={task.due_date}>DUE · {task.due_date}</time>}
-              {task.owner_id === user.id && <EditTaskForm task={task} />}
+              {task.owner_id === user.id && <EditTaskForm task={task} members={data.workspaceMembers} />}
+              {task.assignee_id === user.id && task.owner_id !== user.id && <AssignedTaskStatusForm task={task} />}
             </li>
           ))}
         </ul>
       )}
       {(tasks?.length ?? 0) >= 100 && <p className="quiet-copy">Showing the 100 nearest or most recently updated tasks.</p>}
+      <DeletedTaskList tasks={deletedTasks ?? []} />
     </div>
   );
 }

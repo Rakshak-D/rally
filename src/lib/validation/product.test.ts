@@ -66,4 +66,30 @@ describe("workspace and product input validation", () => {
     expect(taskSchema.safeParse({ ...base, status: "blocked" }).success).toBe(false);
     expect(goalSchema.safeParse({ ...base, status: "active" }).success).toBe(true);
   });
+
+  it("validates and normalizes bounded goal progress and task assignments", () => {
+    const goal = goalSchema.parse({
+      workspaceId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      challengeId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      title: "Practice",
+      progressCurrent: "3",
+      progressTarget: "8",
+      progressUnit: " sessions ",
+    });
+    expect(goal).toMatchObject({ progressCurrent: 3, progressTarget: 8, progressUnit: "sessions" });
+    expect(goalSchema.safeParse({ ...goal, progressCurrent: 9 }).success).toBe(false);
+    expect(goalSchema.safeParse({ ...goal, progressTarget: "0" }).success).toBe(false);
+    expect(taskSchema.safeParse({
+      workspaceId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      challengeId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      title: "Share the plan",
+      assigneeId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+    }).success).toBe(true);
+    expect(taskSchema.safeParse({
+      workspaceId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      challengeId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      title: "Share the plan",
+      assigneeId: "someone-else",
+    }).success).toBe(false);
+  });
 });

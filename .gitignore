@@ -13,6 +13,7 @@
 # testing
 /coverage
 /output/playwright/
+/output/reports/
 
 # next.js
 /.next/

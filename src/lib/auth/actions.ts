@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 
 import { getSiteUrl, safeInternalPath } from "@/lib/config";
-import type { ActionState } from "@/lib/forms/state";
+import { validationFailure, type ActionState } from "@/lib/forms/state";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { emailSchemaForRecovery, signInSchema, signUpSchema } from "@/lib/validation/auth";
 
@@ -21,12 +21,19 @@ export async function signInAction(
     email: formData.get("email"),
     password: formData.get("password"),
   });
-  if (!parsed.success) return { kind: "error", message: "Enter a valid email and password." };
+  if (!parsed.success) return validationFailure("Review the email and password fields.", parsed.error.issues);
 
   const next = safeInternalPath(String(formData.get("next") ?? "/app"));
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.auth.signInWithPassword(parsed.data);
-  if (error) return { kind: "error", message: "That email and password combination could not be verified." };
+  if (error) {
+    return {
+      kind: "error",
+      message: "That email and password combination could not be verified. If you still need a confirmation email, request one below.",
+      email: parsed.data.email,
+      nextPath: next,
+    };
+  }
 
   redirect(next);
 }
@@ -41,7 +48,7 @@ export async function signUpAction(
     displayName: formData.get("displayName"),
   });
   if (!parsed.success) {
-    return { kind: "error", message: "Check your name, email, and password, then try again." };
+    return validationFailure("Review your name, email, and password.", parsed.error.issues);
   }
 
   const supabase = await createSupabaseServerClient();
@@ -70,7 +77,7 @@ export async function requestPasswordResetAction(
   formData: FormData,
 ): Promise<ActionState> {
   const parsed = emailSchemaForRecovery.safeParse({ email: formData.get("email") });
-  if (!parsed.success) return { kind: "error", message: "Enter a valid email address." };
+  if (!parsed.success) return validationFailure("Enter a valid email address.", parsed.error.issues);
 
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {
@@ -84,6 +91,38 @@ export async function requestPasswordResetAction(
   return {
     kind: "success",
     message: "If an account uses that address, a password recovery link will arrive shortly.",
+  };
+}
+
+export async function resendSignupConfirmationAction(
+  _previous: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const parsed = emailSchemaForRecovery.safeParse({ email: formData.get("email") });
+  if (!parsed.success) return validationFailure("Enter a valid email address.", parsed.error.issues);
+
+  const next = safeInternalPath(String(formData.get("next") ?? "/app"));
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.auth.resend({
+    type: "signup",
+    email: parsed.data.email,
+    options: { emailRedirectTo: authCallbackUrl(next) },
+  });
+
+  if (error?.status === 429) {
+    return {
+      kind: "error",
+      message: "Please wait a few minutes before requesting another confirmation email.",
+      email: parsed.data.email,
+      nextPath: next,
+    };
+  }
+
+  return {
+    kind: "success",
+    message: "If this address still needs signup confirmation, a new link will arrive shortly.",
+    email: parsed.data.email,
+    nextPath: next,
   };
 }
 

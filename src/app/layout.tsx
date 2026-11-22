@@ -19,7 +19,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
-      <body className={`${archivo.variable} ${ibmPlexMono.variable}`}>{children}</body>
+      <body className={`${archivo.variable} ${ibmPlexMono.variable}`}>
+        <a className="skip-link" href="#main-content">Skip to content</a>
+        {children}
+      </body>
     </html>
   );
 }

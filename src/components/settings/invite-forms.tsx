@@ -59,7 +59,7 @@ function CopyInviteLink({ link }: { link: string }) {
 }
 
 export function InviteList({ invites, now }: { invites: Invite[]; now: string }) {
-  if (invites.length === 0) return <p className="quiet-copy">No active invitation links yet.</p>;
+  if (invites.length === 0) return <p className="quiet-copy">No invitation links yet. Create one when you are ready to invite someone.</p>;
 
   return (
     <ul className="invite-list">
@@ -70,17 +70,20 @@ export function InviteList({ invites, now }: { invites: Invite[]; now: string })
 
 function InviteItem({ invite, now }: { invite: Invite; now: string }) {
   const [state, formAction, pending] = useActionState(revokeInviteAction, initialActionState);
-  const active = !invite.revoked_at && Date.parse(invite.expires_at) > Date.parse(now) && invite.use_count < invite.max_uses;
+  const expired = Date.parse(invite.expires_at) <= Date.parse(now);
+  const usedUp = invite.use_count >= invite.max_uses;
+  const status = invite.revoked_at ? "Revoked" : expired ? "Expired" : usedUp ? "Used up" : "Available";
+  const active = status === "Available";
 
   return (
     <li className="invite-row">
       <div>
-        <strong>{active ? "Available" : invite.revoked_at ? "Revoked" : "Closed"}</strong>
-        <span>{invite.use_count} of {invite.max_uses} uses · expires {formatInviteExpiry(invite.expires_at)}</span>
+        <strong>{status}</strong>
+        <span>{invite.use_count} of {invite.max_uses} uses · created {formatInviteExpiry(invite.created_at)} · expires {formatInviteExpiry(invite.expires_at)}</span>
         {state.message && <small className="invite-state" role={state.kind === "error" ? "alert" : "status"}>{state.message}</small>}
       </div>
       {active && (
-        <form action={formAction}>
+        <form action={formAction} onSubmit={(event) => { if (!window.confirm("Revoke this invitation? Anyone who has the link will no longer be able to join.")) event.preventDefault(); }}>
           <input type="hidden" name="inviteId" value={invite.id} />
           <button className="button button--quiet" type="submit" disabled={pending}>{pending ? "Revoking…" : "Revoke"}</button>
         </form>

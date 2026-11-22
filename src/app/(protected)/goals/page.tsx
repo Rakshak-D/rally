@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-import { CreateGoalForm, EditGoalForm } from "@/components/product/goal-task-forms";
+import { CreateGoalForm, DeletedGoalList, EditGoalForm } from "@/components/product/goal-task-forms";
+import { GoalProgressView } from "@/components/product/goal-progress-view";
 import { requireUser } from "@/lib/auth/current-user";
 import { getWorkspaceDashboard } from "@/lib/data/dashboard";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import type { Tables } from "@/lib/supabase/database.types";
 
 export const metadata: Metadata = { title: "Goals" };
 
@@ -18,14 +20,27 @@ export default async function GoalsPage({ searchParams }: { searchParams: Promis
     return <section className="empty-state"><p className="eyebrow">GOALS</p><h2>Make space for a shared aim.</h2><p>Create or join a workspace from Today to begin.</p></section>;
   }
 
-  const [{ data: goals, error }, { data: challengeRows, error: challengeError }] = await Promise.all([
-    supabase.from("goals").select("*").eq("workspace_id", workspace.id).order("updated_at", { ascending: false }).limit(100),
+  const [{ data: goals, error }, { data: deletedGoals, error: deletedError }, { data: challengeRows, error: challengeError }] = await Promise.all([
+    supabase.from("goals").select("*").eq("workspace_id", workspace.id).is("deleted_at", null).order("updated_at", { ascending: false }).limit(100),
+    supabase.from("goals").select("*").eq("workspace_id", workspace.id).not("deleted_at", "is", null).order("deleted_at", { ascending: false }).limit(50),
     supabase.from("challenge_status").select("id, title, status").eq("workspace_id", workspace.id).order("start_date", { ascending: false }),
   ]);
-  if (error || challengeError) throw new Error("Goals could not be loaded.");
+  if (error || deletedError || challengeError) throw new Error("Goals could not be loaded.");
+
+  const goalIds = (goals ?? []).map((goal) => goal.id);
+  const historyResult = goalIds.length
+    ? await supabase.from("goal_progress_history").select("*").in("goal_id", goalIds).order("recorded_at", { ascending: false }).limit(300)
+    : { data: [], error: null };
+  if (historyResult.error) throw new Error("Goal progress history could not be loaded.");
 
   const writableChallenge = challengeRows?.find((challenge) => challenge.status === "active") ?? challengeRows?.find((challenge) => challenge.status === "upcoming");
   const names = new Map(data.workspaceMembers.map((member) => [member.id, member.display_name]));
+  const historyByGoal = new Map<string, Tables<"goal_progress_history">[]>();
+  for (const entry of historyResult.data ?? []) {
+    const history = historyByGoal.get(entry.goal_id) ?? [];
+    history.push(entry);
+    historyByGoal.set(entry.goal_id, history);
+  }
 
   return (
     <div className="page-wrap records-page">
@@ -49,15 +64,23 @@ export default async function GoalsPage({ searchParams }: { searchParams: Promis
         <ul className="records-list">
           {goals.map((goal) => (
             <li className={`record-card${goal.status === "completed" ? " record-card--complete" : ""}`} key={goal.id}>
-              <div className="record-card-heading"><span className={`status-chip status-chip--${goal.status}`}>{goal.status}</span><span className="record-owner">{goal.owner_id === user.id ? "You" : names.get(goal.owner_id) ?? "Rally member"}</span></div>
+              <div className="record-card-heading"><span className={`status-chip status-chip--${goal.status}`}>{goal.status === "active" ? "Active" : "Completed"}</span><span className="record-owner">{goal.owner_id === user.id ? "You" : names.get(goal.owner_id) ?? "Rally member"}</span></div>
               <h2>{goal.title}</h2>
               {goal.description && <p>{goal.description}</p>}
+              <GoalProgressView
+                current={goal.progress_current}
+                target={goal.progress_target}
+                unit={goal.progress_unit}
+                timezone={workspace.timezone}
+                history={(historyByGoal.get(goal.id) ?? []).map((entry) => ({ ...entry, displayName: names.get(entry.changed_by ?? "") ?? "Rally member" }))}
+              />
               {goal.owner_id === user.id && <EditGoalForm goal={goal} />}
             </li>
           ))}
         </ul>
       )}
       {(goals?.length ?? 0) >= 100 && <p className="quiet-copy">Showing the 100 most recently updated goals.</p>}
+      <DeletedGoalList goals={deletedGoals ?? []} />
     </div>
   );
 }

@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(56);
+select plan(89);
 
 select has_table('public', 'profiles', 'profiles table exists');
 select has_table('public', 'workspaces', 'workspaces table exists');
@@ -11,6 +11,10 @@ select has_table('public', 'challenges', 'challenges table exists');
 select has_table('public', 'checkins', 'check-ins table exists');
 select has_table('public', 'goals', 'goals table exists');
 select has_table('public', 'tasks', 'tasks table exists');
+select has_table('public', 'goal_progress_history', 'goal progress history table exists');
+select ok(pg_catalog.to_regprocedure('public.transfer_workspace_ownership(uuid,uuid)') is not null, 'ownership transfer function exists');
+select ok(pg_catalog.to_regprocedure('public.update_assigned_task_status(uuid,public.task_status)') is not null, 'assigned task status function exists');
+select ok(not has_function_privilege('anon', 'public.transfer_workspace_ownership(uuid,uuid)', 'EXECUTE'), 'anonymous users cannot call ownership transfer');
 select has_view('public', 'challenge_status', 'challenge status view exists');
 select ok(
   pg_catalog.to_regprocedure('public.get_challenge_progress(uuid)') is not null,
@@ -27,13 +31,13 @@ select ok(
 
 select ok(
   (
-    select count(*) = 8 and bool_and(relrowsecurity)
+    select count(*) = 9 and bool_and(relrowsecurity)
     from pg_catalog.pg_class as relation
     join pg_catalog.pg_namespace as schema on schema.oid = relation.relnamespace
     where schema.nspname = 'public'
       and relation.relname = any(array[
         'profiles', 'workspaces', 'workspace_members', 'workspace_invites',
-        'challenges', 'checkins', 'goals', 'tasks'
+        'challenges', 'checkins', 'goals', 'tasks', 'goal_progress_history'
       ])
       and relation.relkind = 'r'
   ),
@@ -43,6 +47,35 @@ select ok(
 select ok(
   not has_column_privilege('authenticated', 'public.workspace_invites', 'token_hash', 'SELECT'),
   'invite token hashes are not readable through the Data API'
+);
+select ok(
+  not has_table_privilege('authenticated', 'public.goal_progress_history', 'INSERT'),
+  'members cannot forge goal progress history records'
+);
+select has_index('public', 'challenges', 'challenges_created_by_idx', 'challenge creator foreign key is indexed');
+select has_index('public', 'checkins', 'checkins_user_id_idx', 'check-in user foreign key is indexed');
+select has_index('public', 'goal_progress_history', 'goal_progress_history_changed_by_idx', 'progress editor foreign key is indexed');
+select has_index('public', 'goal_progress_history', 'goal_progress_history_workspace_time_idx', 'progress workspace history is indexed');
+select has_index('public', 'goals', 'goals_challenge_workspace_idx', 'goal challenge foreign key is indexed');
+select has_index('public', 'goals', 'goals_owner_id_idx', 'goal owner foreign key is indexed');
+select has_index('public', 'tasks', 'tasks_challenge_workspace_idx', 'task challenge foreign key is indexed');
+select has_index('public', 'tasks', 'tasks_owner_id_idx', 'task owner foreign key is indexed');
+select has_index('public', 'workspace_invites', 'workspace_invites_created_by_idx', 'invite creator foreign key is indexed');
+select has_index('public', 'workspaces', 'workspaces_created_by_idx', 'workspace creator foreign key is indexed');
+select ok(
+  has_column_privilege('authenticated', 'public.goals', 'progress_current', 'INSERT'),
+  'members can initialize current goal progress'
+);
+select ok(
+  has_column_privilege('authenticated', 'public.goals', 'progress_target', 'INSERT')
+    and has_column_privilege('authenticated', 'public.goals', 'progress_unit', 'INSERT'),
+  'members can initialize goal targets and units'
+);
+select ok(
+  has_column_privilege('authenticated', 'public.goals', 'progress_current', 'UPDATE')
+    and has_column_privilege('authenticated', 'public.goals', 'progress_target', 'UPDATE')
+    and has_column_privilege('authenticated', 'public.goals', 'progress_unit', 'UPDATE'),
+  'members can update goal progress fields'
 );
 
 insert into auth.users (
@@ -161,17 +194,29 @@ select throws_ok(
 );
 select is((select count(*)::integer from public.challenges), 3, 'members can read shared challenges');
 with inserted as (
-  insert into public.goals (workspace_id, challenge_id, title, description, status)
-  values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'cccccccc-cccc-cccc-cccc-cccccccccccc', 'Member goal', '', 'active')
-  returning owner_id, status
+  insert into public.goals (workspace_id, challenge_id, title, description, status, progress_current, progress_target, progress_unit)
+  values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'cccccccc-cccc-cccc-cccc-cccccccccccc', 'Member goal', '', 'active', 1, 5, 'sessions')
+  returning owner_id, status, progress_current, progress_target, progress_unit
 )
 select is((select owner_id from inserted), '22222222-2222-2222-2222-222222222222'::uuid, 'a member can create an owned goal');
+select is((select progress_current from public.goals where title = 'Member goal'), 1::numeric, 'a member can initialize goal progress');
+select is((select progress_target from public.goals where title = 'Member goal'), 5::numeric, 'a member can initialize goal target');
+select is((select progress_unit from public.goals where title = 'Member goal'), 'sessions', 'a member can initialize goal unit');
+update public.goals set progress_current = 2, progress_target = 5, progress_unit = 'sessions' where title = 'Member goal';
+select is((select count(*)::integer from public.goal_progress_history where goal_id = (select id from public.goals where title = 'Member goal')), 2, 'goal progress creates an immutable initial and updated history record');
+update public.goals set deleted_at = now() where title = 'Member goal';
+select is((select count(*)::integer from public.goals where title = 'Member goal'), 1, 'a creator can still recover their soft-deleted goal');
 with inserted as (
   insert into public.tasks (workspace_id, challenge_id, title, description, due_date, status)
   values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'cccccccc-cccc-cccc-cccc-cccccccccccc', 'Member task', '', null, 'todo')
   returning owner_id, status
 )
 select is((select owner_id from inserted), '22222222-2222-2222-2222-222222222222'::uuid, 'a member can create an owned task');
+update public.tasks set assignee_id = '11111111-1111-1111-1111-111111111111' where title = 'Member task';
+select throws_ok(
+  $$update public.tasks set assignee_id = '33333333-3333-3333-3333-333333333333' where title = 'Member task'$$,
+  '22023', null, 'a task cannot be assigned to a non-member'
+);
 select throws_ok(
   $$insert into public.tasks (workspace_id, challenge_id, owner_id, title) values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'cccccccc-cccc-cccc-cccc-cccccccccccc', '11111111-1111-1111-1111-111111111111', 'Forged owner')$$,
   '42501', null, 'members cannot assign a task to another user'
@@ -200,6 +245,15 @@ select throws_ok(
 );
 
 select set_config('request.jwt.claim.sub', '11111111-1111-1111-1111-111111111111', true);
+select is((select count(*)::integer from public.goals where title = 'Member goal'), 0, 'soft-deleted goals stay private to their creator');
+select public.update_assigned_task_status((select id from public.tasks where title = 'Member task'), 'in_progress');
+select is((select status::text from public.tasks where title = 'Member task'), 'in_progress', 'a task assignee can update only its status');
+update public.tasks set status = 'completed' where title = 'Member task';
+select is((select status::text from public.tasks where title = 'Member task'), 'in_progress', 'assignees must use the status-only operation');
+update public.tasks set title = 'Assignee edited title' where title = 'Member task';
+select is((select title from public.tasks where assignee_id = '11111111-1111-1111-1111-111111111111'), 'Member task', 'an assignee cannot edit task details');
+insert into public.tasks (workspace_id, challenge_id, assignee_id, title)
+values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'cccccccc-cccc-cccc-cccc-cccccccccccc', '22222222-2222-2222-2222-222222222222', 'Assignment cleanup task');
 update public.checkins set accomplishment = 'Forged by owner' where id = (
   select id from public.checkins where user_id = '22222222-2222-2222-2222-222222222222'
     and checkin_date = (now() at time zone 'UTC')::date
@@ -258,6 +312,20 @@ select is(
 );
 select set_config('request.jwt.claim.sub', '22222222-2222-2222-2222-222222222222', true);
 select is(public.redeem_invite(repeat('c', 64)) ->> 'status', 'unavailable', 'revoked invitations return a generic unavailable result');
+
+select set_config('request.jwt.claim.sub', '11111111-1111-1111-1111-111111111111', true);
+select public.remove_workspace_member('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '22222222-2222-2222-2222-222222222222');
+select is((select assignee_id from public.tasks where title = 'Assignment cleanup task'), null::uuid, 'removing a member clears their task assignments');
+select public.transfer_workspace_ownership('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '44444444-4444-4444-4444-444444444444');
+select is((select role::text from public.workspace_members where workspace_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' and user_id = '11111111-1111-1111-1111-111111111111'), 'member', 'the previous owner becomes a member after handoff');
+select is((select role::text from public.workspace_members where workspace_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' and user_id = '44444444-4444-4444-4444-444444444444'), 'owner', 'ownership is transferred to the selected member');
+select throws_ok(
+  $$select public.create_invite('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', repeat('d', 64), now() + interval '1 day', 1)$$,
+  '42501', null, 'the former owner cannot create invitations after transfer'
+);
+select set_config('request.jwt.claim.sub', '44444444-4444-4444-4444-444444444444', true);
+update public.workspaces set name = 'Owned by invitee' where id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+select is((select name from public.workspaces where id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'), 'Owned by invitee', 'the new owner can manage the workspace');
 
 select set_config('request.jwt.claim.sub', '33333333-3333-3333-3333-333333333333', true);
 select throws_ok(

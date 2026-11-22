@@ -14,7 +14,7 @@ export function AuthCard({
   children: ReactNode;
 }) {
   return (
-    <main className="auth-page">
+    <main className="auth-page" id="main-content" tabIndex={-1}>
       <div className="auth-frame">
         <div className="auth-header">
           <Logo href="/sign-in" />

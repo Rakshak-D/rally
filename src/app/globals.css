@@ -17,7 +17,7 @@
   --panel: #fffefa;
   --ink: #171916;
   --muted: #60645f;
-  --subtle: #858982;
+  --subtle: #686c66;
   --rally: #e4572e;
   --rally-dark: #bd3c1b;
   --forest: #28665b;
@@ -68,9 +68,28 @@ button:focus-visible,
 a:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
-select:focus-visible {
-  outline: 3px solid color-mix(in srgb, var(--rally) 44%, transparent);
+select:focus-visible,
+summary:focus-visible {
+  outline: 3px solid var(--rally-dark);
   outline-offset: 3px;
+}
+
+.skip-link {
+  position: fixed;
+  z-index: 100;
+  top: 8px;
+  left: 8px;
+  padding: 10px 14px;
+  transform: translateY(-160%);
+  border: 2px solid var(--ink);
+  border-radius: var(--radius-control);
+  color: #fff;
+  background: var(--ink);
+  font-weight: 600;
+}
+
+.skip-link:focus {
+  transform: translateY(0);
 }
 
 ::selection {
@@ -153,7 +172,7 @@ select:focus-visible {
   margin: 0 0 11px;
   color: var(--forest);
   font-family: var(--font-ibm-plex-mono), monospace;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   letter-spacing: 0.08em;
   line-height: 1.4;
@@ -207,7 +226,7 @@ select:focus-visible {
 
 .field-input::placeholder,
 .field-textarea::placeholder {
-  color: #898c86;
+  color: var(--muted);
 }
 
 .field-input:hover,
@@ -286,7 +305,7 @@ select:focus-visible {
 
 .button--primary {
   color: #fff;
-  background: var(--rally);
+  background: var(--rally-dark);
 }
 
 .button--primary:hover:not(:disabled) {
@@ -361,7 +380,7 @@ select:focus-visible {
 .auth-footer span:first-child {
   color: var(--ink);
   font-family: var(--font-ibm-plex-mono), monospace;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -398,7 +417,7 @@ select:focus-visible {
 .mono-label {
   color: var(--subtle);
   font-family: var(--font-ibm-plex-mono), monospace;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 500;
   letter-spacing: 0.07em;
   line-height: 1.4;
@@ -454,13 +473,13 @@ select:focus-visible {
 }
 
 .side-nav-code {
-  color: #90938c;
+  color: var(--muted);
   font-family: var(--font-ibm-plex-mono), monospace;
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .side-nav-link.is-active .side-nav-code {
-  color: var(--rally);
+  color: var(--rally-dark);
 }
 
 .side-nav-marker {
@@ -506,7 +525,7 @@ select:focus-visible {
 
 .sidebar-user-copy span {
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .sign-out-button {
@@ -579,7 +598,7 @@ select:focus-visible {
 .challenge-day-stamp {
   color: var(--muted);
   font-family: var(--font-ibm-plex-mono), monospace;
-  font-size: 11px;
+  font-size: 12px;
   white-space: nowrap;
 }
 
@@ -686,7 +705,7 @@ select:focus-visible {
 .calendar-key {
   color: var(--muted);
   font-family: var(--font-ibm-plex-mono), monospace;
-  font-size: 10px;
+  font-size: 12px;
   white-space: nowrap;
 }
 
@@ -710,11 +729,45 @@ select:focus-visible {
   gap: 14px;
 }
 
+.checkin-notes-disclosure {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+}
+
+.checkin-notes-disclosure > summary {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 7px;
+  color: var(--forest);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+
+.checkin-notes-disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+
+.checkin-notes-disclosure > summary::after {
+  margin-left: auto;
+  color: var(--rally-dark);
+  content: "+";
+  font-size: 18px;
+  font-weight: 400;
+}
+
+.checkin-notes-disclosure[open] > summary::after {
+  content: "−";
+}
+
 .field-optional {
   margin-left: 4px;
   color: var(--subtle);
   font-family: var(--font-ibm-plex-mono), monospace;
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 400;
   letter-spacing: 0.04em;
 }
@@ -787,7 +840,7 @@ select:focus-visible {
   color: #285b50;
   background: #e5efeb;
   font-family: var(--font-ibm-plex-mono), monospace;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 500;
 }
 
@@ -800,7 +853,7 @@ select:focus-visible {
 .member-avatar--small {
   width: 27px;
   height: 27px;
-  font-size: 9px;
+  font-size: 12px;
 }
 
 .team-member-copy {
@@ -829,7 +882,7 @@ select:focus-visible {
   margin-left: 7px;
   color: var(--subtle);
   font-family: var(--font-ibm-plex-mono), monospace;
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 400;
 }
 
@@ -837,8 +890,8 @@ select:focus-visible {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  color: #777b75;
-  font-size: 11px;
+  color: var(--muted);
+  font-size: 12px;
   white-space: nowrap;
 }
 
@@ -862,7 +915,7 @@ select:focus-visible {
   align-items: center;
   gap: 7px;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .consistency-track {
@@ -883,7 +936,7 @@ select:focus-visible {
 .mono-value {
   color: var(--ink);
   font-family: var(--font-ibm-plex-mono), monospace;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 500;
 }
 
@@ -911,7 +964,7 @@ select:focus-visible {
 .team-streak span {
   color: var(--muted);
   font-family: var(--font-ibm-plex-mono), monospace;
-  font-size: 9px;
+  font-size: 12px;
   white-space: nowrap;
 }
 
@@ -977,7 +1030,7 @@ select:focus-visible {
 .streak-longest span {
   color: #d7e5df;
   font-family: var(--font-ibm-plex-mono), monospace;
-  font-size: 10px;
+  font-size: 12px;
   text-transform: uppercase;
 }
 
@@ -1019,10 +1072,10 @@ select:focus-visible {
   place-items: center;
   border: 1px solid #ebeae4;
   border-radius: 6px;
-  color: #777b75;
+  color: var(--muted);
   background: #faf9f5;
   font-family: var(--font-ibm-plex-mono), monospace;
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .calendar-day--complete {
@@ -1041,7 +1094,7 @@ select:focus-visible {
   margin: 10px 0 0;
   color: var(--muted);
   font-family: var(--font-ibm-plex-mono), monospace;
-  font-size: 9px;
+  font-size: 12px;
 }
 
 .side-list-panel {
@@ -1118,12 +1171,18 @@ select:focus-visible {
 .compact-record-list time,
 .goal-preview-list small {
   color: var(--muted);
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .compact-record-list time {
   font-family: var(--font-ibm-plex-mono), monospace;
-  font-size: 9px;
+  font-size: 12px;
+}
+
+.task-no-due {
+  color: var(--subtle);
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 .goal-preview-list li {
@@ -1137,6 +1196,27 @@ select:focus-visible {
 .goal-preview-list li > span:last-child {
   display: grid;
   gap: 2px;
+}
+
+.goal-preview-progress {
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.goal-preview-track {
+  height: 5px;
+  margin-top: 3px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e9e7df;
+}
+
+.goal-preview-track > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--rally-dark);
 }
 
 .goal-mark {
@@ -1193,7 +1273,7 @@ select:focus-visible {
 .activity-meta time {
   color: var(--muted);
   font-family: var(--font-ibm-plex-mono), monospace;
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .activity-copy > p {
@@ -1208,7 +1288,7 @@ select:focus-visible {
   gap: 7px;
   color: var(--forest);
   font-family: var(--font-ibm-plex-mono), monospace;
-  font-size: 9px;
+  font-size: 12px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -1216,7 +1296,7 @@ select:focus-visible {
 .activity-next span {
   color: var(--muted);
   font-family: var(--font-sans), sans-serif;
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0;
   text-transform: none;
   overflow-wrap: anywhere;
@@ -1263,14 +1343,14 @@ select:focus-visible {
   align-items: center;
   gap: 9px;
   margin-bottom: 22px;
-  color: var(--rally);
+  color: var(--rally-dark);
   font-family: var(--font-ibm-plex-mono), monospace;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .panel-index span {
   color: var(--subtle);
-  font-size: 9px;
+  font-size: 12px;
   letter-spacing: 0.06em;
 }
 
@@ -1311,7 +1391,7 @@ select:focus-visible {
   color: var(--rally-dark);
   background: #fff3ee;
   font-family: var(--font-ibm-plex-mono), monospace;
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .empty-state {
@@ -1418,7 +1498,7 @@ select:focus-visible {
   color: var(--muted);
   background: #f7f6f1;
   font-family: var(--font-ibm-plex-mono), monospace;
-  font-size: 9px;
+  font-size: 12px;
   letter-spacing: 0.04em;
   line-height: 1.2;
   text-transform: uppercase;
@@ -1463,7 +1543,7 @@ select:focus-visible {
 }
 
 .field-input--readonly {
-  color: #777b75;
+  color: var(--muted);
   background: #f7f6f2;
 }
 
@@ -1527,7 +1607,7 @@ select:focus-visible {
 
 .settings-member-copy span {
   color: var(--muted);
-  font-size: 10px;
+  font-size: 12px;
   text-transform: capitalize;
 }
 
@@ -1538,14 +1618,14 @@ select:focus-visible {
 
 .member-action-form .button {
   min-height: 31px;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .member-action-message,
 .record-action-message {
   display: block;
   color: var(--rally-dark);
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .leave-workspace-form {
@@ -1599,7 +1679,7 @@ select:focus-visible {
 
 .invite-row span {
   color: var(--muted);
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .invite-link-result {
@@ -1613,7 +1693,7 @@ select:focus-visible {
 
 .invite-link-result .field-input {
   font-family: var(--font-ibm-plex-mono), monospace;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .invite-link-result .button {
@@ -1669,7 +1749,7 @@ select:focus-visible {
 .challenge-settings-item > summary small {
   color: var(--muted);
   font-family: var(--font-ibm-plex-mono), monospace;
-  font-size: 9px;
+  font-size: 12px;
 }
 
 .challenge-settings-item .settings-form {
@@ -1754,7 +1834,7 @@ select:focus-visible {
   margin-top: 4px;
   color: var(--muted);
   font-family: var(--font-ibm-plex-mono), monospace;
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 400;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -1817,7 +1897,7 @@ select:focus-visible {
 .record-owner {
   overflow: hidden;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1843,7 +1923,7 @@ select:focus-visible {
   padding-top: 9px;
   color: var(--muted);
   font-family: var(--font-ibm-plex-mono), monospace;
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .record-edit-details {
@@ -1906,7 +1986,7 @@ select:focus-visible {
 .history-filters .field-label {
   width: min(250px, 34%);
   gap: 5px;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .history-filters .field-select {
@@ -1925,7 +2005,7 @@ select:focus-visible {
 .history-date-range {
   color: var(--muted);
   font-family: var(--font-ibm-plex-mono), monospace;
-  font-size: 10px;
+  font-size: 12px;
   text-align: right;
 }
 
@@ -1962,7 +2042,7 @@ select:focus-visible {
 .history-weekdays span {
   color: var(--subtle);
   font-family: var(--font-ibm-plex-mono), monospace;
-  font-size: 9px;
+  font-size: 12px;
   text-align: center;
 }
 
@@ -1979,7 +2059,7 @@ select:focus-visible {
   color: var(--muted);
   background: #faf9f5;
   font-family: var(--font-ibm-plex-mono), monospace;
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .history-calendar-day--blank {
@@ -1996,7 +2076,7 @@ select:focus-visible {
 .history-calendar-day small {
   margin-top: -4px;
   color: var(--forest);
-  font-size: 8px;
+  font-size: 11px;
 }
 
 .history-feed .section-heading {
@@ -2026,7 +2106,7 @@ select:focus-visible {
   padding-top: 2px;
   color: var(--muted);
   font-family: var(--font-ibm-plex-mono), monospace;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .history-record-copy {
@@ -2041,7 +2121,7 @@ select:focus-visible {
 
 .history-record-copy .activity-meta > span {
   color: var(--muted);
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .history-next {
@@ -2053,7 +2133,7 @@ select:focus-visible {
 .history-next > span {
   color: var(--forest);
   font-family: var(--font-ibm-plex-mono), monospace;
-  font-size: 9px;
+  font-size: 12px;
 }
 
 .history-next p,
@@ -2071,7 +2151,7 @@ select:focus-visible {
 .history-note summary {
   width: fit-content;
   color: var(--forest);
-  font-size: 11px;
+  font-size: 12px;
   cursor: pointer;
 }
 
@@ -2091,7 +2171,7 @@ select:focus-visible {
 .history-pagination > span {
   color: var(--muted);
   font-family: var(--font-ibm-plex-mono), monospace;
-  font-size: 10px;
+  font-size: 12px;
 }
 
 @media (max-width: 1000px) {
@@ -2164,7 +2244,7 @@ select:focus-visible {
 
   .history-record-date {
     color: var(--rally-dark);
-    font-size: 10px;
+    font-size: 12px;
   }
 
   .history-pagination .button {
@@ -2287,7 +2367,7 @@ select:focus-visible {
     left: 0;
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
-    padding: 8px 9px max(9px, env(safe-area-inset-bottom));
+    padding: 4px 9px max(4px, env(safe-area-inset-bottom));
     border-top: 1px solid var(--line);
     background: #fffefa;
   }
@@ -2298,7 +2378,7 @@ select:focus-visible {
     place-items: center;
     border-radius: 8px;
     color: var(--muted);
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 500;
     text-decoration: none;
   }
@@ -2370,7 +2450,7 @@ select:focus-visible {
   }
 
   .challenge-day-stamp .mono-label {
-    font-size: 9px;
+    font-size: 12px;
     letter-spacing: 0.02em;
   }
 
@@ -2389,27 +2469,33 @@ select:focus-visible {
   }
 
   .checkin-panel {
-    padding: 14px;
+    padding: 12px;
   }
 
   .checkin-form {
-    gap: 9px;
-    padding-top: 12px;
+    gap: 7px;
+    padding-top: 10px;
   }
 
   .checkin-form .field-textarea {
-    min-height: 68px;
+    min-height: 52px;
   }
 
   .checkin-form #accomplishment {
-    height: 64px;
-    min-height: 64px;
+    height: 58px;
+    min-height: 58px;
   }
 
   .checkin-form #next-plan,
   .checkin-form #checkin-notes {
-    height: 58px;
-    min-height: 58px;
+    height: 52px;
+    min-height: 52px;
+  }
+
+  .checkin-form .quiet-copy {
+    margin-top: 10px;
+    font-size: 12px;
+    line-height: 1.4;
   }
 
   .team-row {
@@ -2464,7 +2550,7 @@ select:focus-visible {
 
   .auth-footer {
     gap: 8px;
-    font-size: 11px;
+    font-size: 12px;
   }
 }
 
@@ -2474,5 +2560,197 @@ select:focus-visible {
   *::after {
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+.field-error {
+  display: block;
+  color: var(--rally-dark);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.goal-progress-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.goal-progress-view {
+  display: grid;
+  gap: 9px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.goal-progress-summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.goal-progress-summary .eyebrow {
+  margin: 0;
+}
+
+.goal-progress-summary strong {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  font-size: 14px;
+}
+
+.goal-progress-track {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e9e7df;
+}
+
+.goal-progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--rally-dark);
+  transition: width 180ms ease-out;
+}
+
+.goal-progress-history > summary,
+.deleted-records > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.goal-progress-history ol,
+.deleted-records ul {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.goal-progress-history li,
+.deleted-records li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.goal-progress-history li time,
+.deleted-records li small {
+  color: var(--subtle);
+  font-family: var(--font-ibm-plex-mono), monospace;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.deleted-records {
+  margin-top: 24px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-panel);
+  background: var(--panel);
+}
+
+.deleted-records li > span {
+  display: grid;
+  gap: 3px;
+}
+
+.task-assignee {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.assigned-task-status-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.assigned-task-status-form .form-message {
+  grid-column: 1 / -1;
+}
+
+.ownership-transfer {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.ownership-transfer h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.ownership-transfer-form {
+  display: grid;
+  gap: 12px;
+}
+
+.resend-confirmation-form {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: #f8f7f2;
+}
+
+.challenge-complete-note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 0 22px;
+  padding: 14px 16px;
+  border: 1px solid #c2d8d1;
+  border-left: 4px solid var(--forest);
+  border-radius: var(--radius-control);
+  background: #eef5f1;
+}
+
+.challenge-complete-note p {
+  margin: 0;
+}
+
+@media (max-width: 600px) {
+  .goal-progress-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .goal-progress-fields > :last-child {
+    grid-column: 1 / -1;
+  }
+
+  .assigned-task-status-form {
+    grid-template-columns: 1fr;
+  }
+
+  .assigned-task-status-form .button {
+    width: 100%;
+  }
+
+  .challenge-complete-note {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }

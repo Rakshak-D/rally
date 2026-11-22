@@ -24,7 +24,7 @@ export function CheckinSection({
         <CheckinEditor challengeId={challenge.id} checkin={todayCheckin} />
       ) : (
         <div className="checkin-unavailable">
-          <p>{challenge.status === "upcoming" ? `Check-ins open on ${challenge.start_date}.` : "This challenge has ended. Its check-ins remain in history."}</p>
+          <p>{challenge.status === "upcoming" ? `Check-ins open on ${challenge.start_date}.` : "This challenge is complete. Its check-ins remain in history."}</p>
         </div>
       )}
     </section>
