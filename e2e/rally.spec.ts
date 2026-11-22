@@ -92,6 +92,7 @@ test("members can build, share, and protect real progress", async ({ browser }) 
   await owner.getByLabel("Timezone").selectOption("UTC");
   await owner.getByRole("button", { name: "Create workspace" }).click();
   await expect(owner.getByRole("heading", { name: /Choose a stretch worth sharing/ })).toBeVisible();
+  await expect(owner.getByRole("link", { name: "Invite people" })).toHaveAttribute("href", /\/settings\?workspace=[a-f0-9-]{36}#invites-heading/);
   await owner.getByLabel("Challenge name").fill(challengeName);
 
   const startDate = await owner.getByLabel("Start date").inputValue();
@@ -102,6 +103,7 @@ test("members can build, share, and protect real progress", async ({ browser }) 
 
   await owner.getByRole("button", { name: "Start challenge" }).click();
   await expect(owner.getByRole("heading", { name: "Today, together." })).toBeVisible();
+  await expect(owner.getByRole("link", { name: "Invite people" })).toHaveAttribute("href", /\/settings\?workspace=[a-f0-9-]{36}#invites-heading/);
   await expect(owner.getByText(challengeName)).toBeVisible();
   await owner.getByLabel("What I accomplished").fill("Finished the first focused session.");
   await owner.getByLabel("What I plan to do next").fill("Set up tomorrow's session.");
@@ -156,6 +158,7 @@ test("members can build, share, and protect real progress", async ({ browser }) 
   await expect(member.getByRole("button", { name: "Accept invitation" })).toBeVisible();
   await member.getByRole("button", { name: "Accept invitation" }).click();
   await expect(member.getByRole("heading", { name: "Today, together." })).toBeVisible();
+  await expect(member.getByRole("link", { name: "Invite people" })).toHaveCount(0);
   await member.getByLabel("What I accomplished").fill("Shared the first update with the group.");
   await member.getByLabel("What I plan to do next").fill("Keep the daily rhythm.");
   await member.getByRole("button", { name: "Save check-in" }).click();
