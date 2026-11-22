@@ -19,9 +19,18 @@ export function getSiteUrl(): URL {
 }
 
 export function safeInternalPath(value: string | null, fallback = "/app"): string {
-  if (!value || !value.startsWith("/") || value.startsWith("//") || value.includes("\\")) {
+  if (!value || /[\\\\\u0000-\u001f\u007f]/.test(value) || !value.startsWith("/") || value.startsWith("//")) {
     return fallback;
   }
+
+  // Only redirect to routes supported by Rally. In particular, block URLs that
+  // acquire a foreign origin when normalized by WHATWG URL parsing.
+  const [pathname, query = ""] = value.split("?");
+  const allowedPage = /^(?:\/app|\/tasks|\/goals|\/history|\/settings|\/auth\/reset-password)$/.test(pathname);
+  const allowedInvite = /^\/join\/[a-f0-9]{64}$/i.test(pathname);
+  if (!allowedPage && !allowedInvite) return fallback;
+  if (value.includes("#") || value.split("?").length > 2) return fallback;
+  if (query && !/^workspace=[0-9a-f-]{36}$/i.test(query)) return fallback;
 
   return value;
 }
