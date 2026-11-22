@@ -645,6 +645,26 @@ select:focus-visible {
   align-items: center;
 }
 
+.team-heading-tools {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  padding-top: 3px;
+  text-align: right;
+}
+
+.team-heading-tools .text-link {
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+#invites-heading {
+  scroll-margin-top: 90px;
+}
+
+
 .section-heading h2,
 .side-list-heading h2,
 .calendar-panel h2 {
