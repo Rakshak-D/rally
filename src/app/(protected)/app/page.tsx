@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import Link from "next/link";
 
 import { ActivitySection } from "@/components/dashboard/activity-section";
 import { Logo } from "@/components/brand/logo";
@@ -62,6 +63,7 @@ export default async function DashboardPage({
           <section className="onboarding-panel onboarding-panel--wide">
             <div className="panel-index">01 <span>SET THE DATES</span></div>
             <CreateChallengeForm workspaceId={workspace.id} startDate={localToday} />
+            <p className="onboarding-note">Your friends can join before the challenge begins. <Link className="text-link" href={`/settings?workspace=${encodeURIComponent(workspace.id)}#invites-heading`}>Invite people <span aria-hidden="true">↗</span></Link></p>
           </section>
         ) : (
           <section className="empty-state">
@@ -92,7 +94,7 @@ export default async function DashboardPage({
       <div className="dashboard-grid">
         <section className="dashboard-primary">
           <CheckinSection challenge={data.challenge} today={data.today} todayCheckin={data.todayCheckin} />
-          <TeamSection progress={data.teamProgress} currentUserId={user.id} />
+          <TeamSection progress={data.teamProgress} currentUserId={user.id} workspaceId={workspace.id} canInvite={workspace.role === "owner"} />
         </section>
         <aside className="dashboard-side">
           <StreakSection data={data} currentUserId={user.id} />
