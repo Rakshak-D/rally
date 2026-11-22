@@ -372,7 +372,7 @@ test("members can build, share, and protect real progress", async ({ browser }) 
   await completedChallengeForm.getByLabel("Start date").fill(challengeStart.toISOString().slice(0, 10));
   await completedChallengeForm.getByLabel("End date").fill(challengeEnd.toISOString().slice(0, 10));
   await completedChallengeForm.getByRole("button", { name: "Start challenge" }).click();
-  await owner.goto(`/app?workspace=${secondWorkspaceId}`);
+  await expect(owner).toHaveURL(new RegExp(`/app\\?workspace=${secondWorkspaceId}$`));
   await expect(owner.getByText("This challenge is complete. Check-ins, goals, and history remain available.")).toBeVisible();
   await expect(owner.getByRole("link", { name: /Plan the next challenge/ })).toBeVisible();
 
@@ -381,7 +381,7 @@ test("members can build, share, and protect real progress", async ({ browser }) 
   const secondInviteLink = await owner.locator("#created-invite-link").inputValue();
   await member.goto(secondInviteLink);
   await member.getByRole("button", { name: "Accept invitation" }).click();
-  await member.goto(`/app?workspace=${secondWorkspaceId}`);
+  await expect(member).toHaveURL(new RegExp(`/app\\?workspace=${secondWorkspaceId}$`));
   await expect(member.getByText("This challenge is complete. Check-ins, goals, and history remain available.")).toBeVisible();
   await expect(member.getByRole("link", { name: /Plan the next challenge/ })).toHaveCount(0);
   await expect(member.getByText("A workspace owner can set up the next challenge.")).toBeVisible();
