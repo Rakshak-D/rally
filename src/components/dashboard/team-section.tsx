@@ -1,8 +1,10 @@
+import Link from "next/link";
+
 import type { TeamProgress } from "@/lib/data/dashboard";
 
 import { MemberAvatar } from "./member-avatar";
 
-export function TeamSection({ progress, currentUserId }: { progress: TeamProgress[]; currentUserId: string }) {
+export function TeamSection({ progress, currentUserId, workspaceId, canInvite }: { progress: TeamProgress[]; currentUserId: string; workspaceId: string; canInvite: boolean }) {
   return (
     <section className="team-panel" aria-labelledby="team-heading">
       <div className="section-heading section-heading--lined">
@@ -10,7 +12,14 @@ export function TeamSection({ progress, currentUserId }: { progress: TeamProgres
           <p className="eyebrow">THE GROUP</p>
           <h2 id="team-heading">Showing up, side by side.</h2>
         </div>
-        <span className="team-count">{progress.length} {progress.length === 1 ? "member" : "members"}</span>
+        <div className="team-heading-tools">
+          <span className="team-count">{progress.length} {progress.length === 1 ? "member" : "members"}</span>
+          {canInvite && (
+            <Link className="text-link" href={`/settings?workspace=${encodeURIComponent(workspaceId)}#invites-heading`}>
+              Invite people <span aria-hidden="true">↗</span>
+            </Link>
+          )}
+        </div>
       </div>
       {progress.length === 0 ? (
         <p className="quiet-copy">Progress will appear here when members begin checking in.</p>
