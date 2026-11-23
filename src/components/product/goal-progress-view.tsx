@@ -22,24 +22,27 @@ export function GoalProgressView({
   return (
     <div className="goal-progress-view">
       <div className="goal-progress-summary">
-        <span className="eyebrow">PROGRESS</span>
+        <span>Progress</span>
         <strong>{target === null ? quantity : `${quantity} of ${formatAmount(target)}${unit ? ` ${unit}` : ""}`}</strong>
       </div>
       {target !== null && percent !== null && (
-        <div
-          aria-label="Goal progress"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={percent}
-          aria-valuetext={`${quantity} of ${formatAmount(target)}${unit ? ` ${unit}` : ""}`}
-          className="goal-progress-track"
-          role="progressbar"
-        >
-          <span className="goal-progress-fill" style={{ width: `${percent}%` }} />
+        <div className="goal-progress-meter">
+          <div
+            aria-label="Goal progress"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={percent}
+            aria-valuetext={`${quantity} of ${formatAmount(target)}${unit ? ` ${unit}` : ""}`}
+            className="goal-progress-track"
+            role="progressbar"
+          >
+            <span className="goal-progress-fill" style={{ width: `${percent}%` }} />
+          </div>
+          <span className="goal-progress-percent">{percent}% complete</span>
         </div>
       )}
       <details className="goal-progress-history">
-        <summary>Progress record <span>{history.length}</span></summary>
+        <summary>Progress updates <span>{history.length}</span></summary>
         {!history.length ? (
           <p className="quiet-copy">Progress changes will appear here.</p>
         ) : (
