@@ -135,14 +135,14 @@ isOneToOne: false
                   ]
                 },"profiles": {
                   Row: {
-                    "created_at": string,"display_name": string,"id": string,"updated_at": string
+                    "avatar_path": string | null,"created_at": string,"display_name": string,"id": string,"tagline": string | null,"updated_at": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "created_at"?: string,"display_name": string,"id": string,"updated_at"?: string
+                    "avatar_path"?: string | null,"created_at"?: string,"display_name": string,"id": string,"tagline"?: string | null,"updated_at"?: string
                   }
                   Update: {
-                    "created_at"?: string,"display_name"?: string,"id"?: string,"updated_at"?: string
+                    "avatar_path"?: string | null,"created_at"?: string,"display_name"?: string,"id"?: string,"tagline"?: string | null,"updated_at"?: string
                   }
                   Relationships: [
                     

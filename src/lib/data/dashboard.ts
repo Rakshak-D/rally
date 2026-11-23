@@ -7,7 +7,7 @@ import type { Enums, Tables } from "@/lib/supabase/database.types";
 type WorkspaceRow = Tables<"workspaces">;
 type MembershipRow = Pick<Tables<"workspace_members">, "workspace_id" | "role" | "created_at">;
 type ChallengeRow = Tables<"challenge_status">;
-type ProfileRow = Pick<Tables<"profiles">, "id" | "display_name">;
+type ProfileRow = Pick<Tables<"profiles">, "id" | "display_name" | "avatar_path" | "tagline" | "created_at">;
 type TaskRow = Pick<Tables<"tasks">, "id" | "title" | "description" | "status" | "due_date" | "owner_id" | "assignee_id" | "deleted_at">;
 type GoalRow = Pick<Tables<"goals">, "id" | "title" | "description" | "status" | "owner_id" | "progress_current" | "progress_target" | "progress_unit" | "deleted_at">;
 type CheckinRow = Pick<Tables<"checkins">, "id" | "user_id" | "checkin_date" | "accomplishment" | "next_plan" | "notes" | "created_at">;
@@ -16,6 +16,7 @@ export type WorkspaceOption = WorkspaceRow & { role: Enums<"workspace_role"> };
 export type TeamProgress = {
   userId: string;
   displayName: string;
+  avatarPath: string | null;
   role: Enums<"workspace_role">;
   currentStreak: number;
   longestStreak: number;
@@ -24,7 +25,7 @@ export type TeamProgress = {
   lastCheckin: string | null;
   checkedInToday: boolean;
 };
-export type RecentCheckin = CheckinRow & { displayName: string };
+export type RecentCheckin = CheckinRow & { displayName: string; avatarPath: string | null };
 
 export type WorkspaceDashboard = {
   workspaces: WorkspaceOption[];
@@ -37,6 +38,7 @@ export type WorkspaceDashboard = {
   calendarDates: string[];
   teamProgress: TeamProgress[];
   recentCheckins: RecentCheckin[];
+  totalCheckins: number;
   openTasks: TaskRow[];
   activeGoals: GoalRow[];
   profile: ProfileRow | null;
@@ -81,7 +83,7 @@ export async function getWorkspaceDashboard(
   const supabase = await createSupabaseServerClient();
   const [membershipResult, profileResult] = await Promise.all([
     supabase.from("workspace_members").select("workspace_id, role, created_at").eq("user_id", userId).order("created_at"),
-    supabase.from("profiles").select("id, display_name").eq("id", userId).maybeSingle(),
+    supabase.from("profiles").select("id, display_name, avatar_path, tagline, created_at").eq("id", userId).maybeSingle(),
   ]);
   failOnError(membershipResult.error, "Workspace memberships");
   failOnError(profileResult.error, "Profile");
@@ -100,6 +102,7 @@ export async function getWorkspaceDashboard(
       calendarDates: [],
       teamProgress: [],
       recentCheckins: [],
+      totalCheckins: 0,
       openTasks: [],
       activeGoals: [],
       profile: profileResult.data,
@@ -134,6 +137,7 @@ export async function getWorkspaceDashboard(
       calendarDates: [],
       teamProgress: [],
       recentCheckins: [],
+      totalCheckins: 0,
       openTasks: [],
       activeGoals: [],
       profile: profileResult.data,
@@ -150,7 +154,7 @@ export async function getWorkspaceDashboard(
 
   const memberIds = (memberResult.data ?? []).map(({ user_id }) => user_id);
   const profileRowsResult = memberIds.length
-    ? await supabase.from("profiles").select("id, display_name").in("id", memberIds).order("display_name")
+    ? await supabase.from("profiles").select("id, display_name, avatar_path, tagline, created_at").in("id", memberIds).order("display_name")
     : { data: [], error: null };
   failOnError(profileRowsResult.error, "Member profiles");
 
@@ -174,6 +178,7 @@ export async function getWorkspaceDashboard(
       calendarDates: [],
       teamProgress: [],
       recentCheckins: [],
+      totalCheckins: 0,
       openTasks: [],
       activeGoals: [],
       profile: profileResult.data,
@@ -183,7 +188,7 @@ export async function getWorkspaceDashboard(
 
   const today = localDateAt(new Date(), challenge.timezone);
   const windowStart = addCalendarDays(today, -34) ?? challenge.start_date;
-  const [progressResult, checkinResult, recentResult, calendarResult, taskResult, goalResult] = await Promise.all([
+  const [progressResult, checkinResult, recentResult, calendarResult, taskResult, goalResult, countResult] = await Promise.all([
     supabase.rpc("get_challenge_progress", { p_challenge_id: challenge.id }),
     supabase.from("checkins").select("id, user_id, checkin_date, accomplishment, next_plan, notes, created_at")
       .eq("challenge_id", challenge.id).eq("user_id", userId).eq("checkin_date", today).maybeSingle(),
@@ -198,6 +203,7 @@ export async function getWorkspaceDashboard(
     supabase.from("goals").select("id, title, description, status, owner_id, progress_current, progress_target, progress_unit, deleted_at")
       .eq("workspace_id", selectedWorkspace.id).eq("challenge_id", challenge.id).eq("status", "active").is("deleted_at", null)
       .order("updated_at", { ascending: false }).limit(6),
+    supabase.from("checkins").select("id", { count: "exact", head: true }).eq("challenge_id", challenge.id).eq("user_id", userId),
   ]);
   failOnError(progressResult.error, "Team progress");
   failOnError(checkinResult.error, "Today's check-in");
@@ -205,12 +211,14 @@ export async function getWorkspaceDashboard(
   failOnError(calendarResult.error, "Recent calendar");
   failOnError(taskResult.error, "Tasks");
   failOnError(goalResult.error, "Goals");
+  failOnError(countResult.error, "Check-in count");
 
-  const displayNames = new Map((profileRowsResult.data ?? []).map((profile) => [profile.id, profile.display_name]));
+  const profiles = new Map((profileRowsResult.data ?? []).map((profile) => [profile.id, profile]));
   const roles = memberRoles;
   const teamProgress = (progressResult.data ?? []).map((member) => ({
     userId: member.user_id,
     displayName: member.display_name,
+    avatarPath: profiles.get(member.user_id)?.avatar_path ?? null,
     role: roles.get(member.user_id) ?? "member",
     currentStreak: member.current_streak,
     longestStreak: member.longest_streak,
@@ -221,7 +229,8 @@ export async function getWorkspaceDashboard(
   }));
   const recentCheckins = ((recentResult.data ?? []) as CheckinRow[]).map((checkin) => ({
     ...checkin,
-    displayName: displayNames.get(checkin.user_id) ?? "Rally member",
+    displayName: profiles.get(checkin.user_id)?.display_name ?? "Rally member",
+    avatarPath: profiles.get(checkin.user_id)?.avatar_path ?? null,
   }));
 
   return {
@@ -235,6 +244,7 @@ export async function getWorkspaceDashboard(
     calendarDates: (calendarResult.data ?? []).map(({ checkin_date }) => checkin_date),
     teamProgress,
     recentCheckins,
+    totalCheckins: countResult.count ?? 0,
     openTasks: (taskResult.data ?? []) as TaskRow[],
     activeGoals: (goalResult.data ?? []) as GoalRow[],
     profile: profileResult.data,

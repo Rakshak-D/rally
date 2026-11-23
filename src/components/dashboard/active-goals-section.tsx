@@ -17,7 +17,7 @@ export function ActiveGoalsSection({
   return (
     <section className="side-list-panel" aria-labelledby="goals-heading">
       <div className="side-list-heading">
-        <div><p className="eyebrow">AIMING AT</p><h2 id="goals-heading">Active goals</h2></div>
+        <div><h2 id="goals-heading">Active goals</h2></div>
         <Link className="text-link" href={`/goals?workspace=${encodeURIComponent(workspaceId)}`}>All</Link>
       </div>
       {goals.length === 0 ? (

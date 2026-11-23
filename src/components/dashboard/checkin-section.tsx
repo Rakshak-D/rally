@@ -13,15 +13,15 @@ export function CheckinSection({
 
   return (
     <section className="checkin-panel" aria-labelledby="checkin-heading">
-      <div className="section-heading section-heading--lined">
+      <header className="checkin-heading">
         <div>
-          <p className="eyebrow">YOUR DAILY NOTE</p>
-          <h2 id="checkin-heading">{todayCheckin ? "Today, recorded." : "What did you move forward?"}</h2>
+          <span className="section-kicker">Today&apos;s check-in</span>
+          <h2 id="checkin-heading">One honest update is enough.</h2>
         </div>
-        <span className="checkin-date">{today ?? "—"}</span>
-      </div>
+        {today && <time dateTime={today}>{today}</time>}
+      </header>
       {canCheckin ? (
-        <CheckinEditor challengeId={challenge.id} checkin={todayCheckin} />
+        <CheckinEditor key={challenge.id} challengeId={challenge.id} checkin={todayCheckin} />
       ) : (
         <div className="checkin-unavailable">
           <p>{challenge.status === "upcoming" ? `Check-ins open on ${challenge.start_date}.` : "This challenge is complete. Its check-ins remain in history."}</p>

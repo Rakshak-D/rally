@@ -16,7 +16,7 @@ export function OpenTasksSection({
   return (
     <section className="side-list-panel" aria-labelledby="tasks-heading">
       <div className="side-list-heading">
-        <div><p className="eyebrow">IN MOTION</p><h2 id="tasks-heading">Open tasks</h2></div>
+        <div><h2 id="tasks-heading">Open tasks</h2></div>
         <Link className="text-link" href={`/tasks?workspace=${encodeURIComponent(workspaceId)}`}>All</Link>
       </div>
       {tasks.length === 0 ? (
