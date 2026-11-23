@@ -19,7 +19,7 @@ export default async function SignUpPage({
 
   return (
     <AuthCard
-      eyebrow="A GOOD PLACE TO BEGIN"
+      eyebrow="A good place to begin"
       title="Make progress visible."
       description="Start your account, find your people, and build a record of showing up."
     >

@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { FormEvent } from "react";
 import { useActionState, useState } from "react";
 
+import { Icon } from "@/components/ui/icons";
 import { initialActionState } from "@/lib/forms/state";
 import { resendSignupConfirmationAction, signInAction } from "@/lib/auth/actions";
 
@@ -74,7 +75,7 @@ export function SignInForm({ next, notice }: { next: string; notice?: string }) 
       {state.message && <p className={`form-message form-message--${state.kind}`} role={state.kind === "error" ? "alert" : "status"}>{state.message}</p>}
       <button className="button button--primary button--full" type="submit" disabled={pending}>
         {pending ? "Signing in…" : "Sign in"}
-        <span aria-hidden="true">↗</span>
+        <Icon name="arrow" size={18} />
       </button>
       <p className="form-switch">
         New to Rally? <Link className="text-link" href={`/sign-up?next=${encodeURIComponent(next)}`}>Create an account</Link>

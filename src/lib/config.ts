@@ -45,11 +45,13 @@ export function safeInternalPath(value: string | null, fallback = "/app"): strin
   // Only redirect to routes supported by Rally. In particular, block URLs that
   // acquire a foreign origin when normalized by WHATWG URL parsing.
   const [pathname, query = ""] = value.split("?");
-  const allowedPage = /^(?:\/app|\/tasks|\/goals|\/history|\/settings|\/auth\/reset-password)$/.test(pathname);
+  const allowedPage = /^(?:\/app|\/tasks|\/goals|\/history|\/settings|\/profile|\/help|\/auth\/reset-password)$/.test(pathname);
   const allowedInvite = /^\/join\/[a-f0-9]{64}$/i.test(pathname);
   if (!allowedPage && !allowedInvite) return fallback;
   if (value.includes("#") || value.split("?").length > 2) return fallback;
-  if (query && !/^workspace=[0-9a-f-]{36}$/i.test(query)) return fallback;
+  const workspaceQuery = /^workspace=[0-9a-f-]{36}$/i;
+  const settingsQuery = /^(?:workspace=[0-9a-f-]{36}(?:&tab=(?:profile|workspace|people|challenges|account))?|tab=(?:profile|workspace|people|challenges|account)(?:&workspace=[0-9a-f-]{36})?)$/i;
+  if (query && !(pathname === "/settings" ? settingsQuery.test(query) : workspaceQuery.test(query))) return fallback;
 
   return value;
 }

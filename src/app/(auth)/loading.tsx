@@ -1,7 +1,7 @@
 export default function AuthLoading() {
   return (
     <div className="route-feedback route-feedback--loading" role="status" aria-live="polite" aria-busy="true">
-      <p className="eyebrow">RALLY</p>
+      <p className="eyebrow">Rally</p>
       <p>Loading account access…</p>
     </div>
   );

@@ -7,7 +7,7 @@ export default function NotFound() {
   return (
     <main id="main-content" className="route-feedback route-feedback--not-found">
       <div className="route-feedback-copy">
-        <p className="eyebrow">RALLY · 404</p>
+        <p className="eyebrow">Rally · 404</p>
         <h1>We couldn’t find that page.</h1>
         <p>The link may be out of date. Return to your workspace to continue.</p>
       </div>

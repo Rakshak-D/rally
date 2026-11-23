@@ -13,7 +13,7 @@ export function ErrorState({ retry, error }: { retry: () => void; error?: unknow
   return (
     <main className="route-feedback route-feedback--error">
       <div className="route-feedback-copy" role="alert">
-        <p className="eyebrow">RALLY · TEMPORARY ERROR</p>
+        <p className="eyebrow">Rally · Temporary error</p>
         <h1 ref={headingRef} tabIndex={-1}>We couldn’t load this page.</h1>
         <p>Rally couldn’t complete the request. Try again, or return to Today.</p>
       </div>

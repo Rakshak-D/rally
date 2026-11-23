@@ -25,7 +25,7 @@ export default async function SignInPage({
 
   return (
     <AuthCard
-      eyebrow="YOUR CIRCLE, IN MOTION"
+      eyebrow="Your circle, in motion"
       title="Pick up where you left off."
       description="Sign in to see today's progress and keep your plans moving."
     >

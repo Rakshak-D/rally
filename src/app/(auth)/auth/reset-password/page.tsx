@@ -11,7 +11,7 @@ export default async function ResetPasswordPage() {
 
   return (
     <AuthCard
-      eyebrow="ACCOUNT ACCESS"
+      eyebrow="Account access"
       title="Choose a new password."
       description="Make it long and unique. You can sign in with it right away."
     >

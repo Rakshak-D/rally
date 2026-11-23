@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { FormEvent } from "react";
 import { useActionState, useState } from "react";
 
+import { Icon } from "@/components/ui/icons";
 import { initialActionState } from "@/lib/forms/state";
 import { signUpAction } from "@/lib/auth/actions";
 
@@ -94,7 +95,7 @@ export function SignUpForm({ next }: { next: string }) {
       )}
       <button className="button button--primary button--full" type="submit" disabled={pending}>
         {pending ? "Creating account…" : "Create account"}
-        <span aria-hidden="true">↗</span>
+        <Icon name="arrow" size={18} />
       </button>
       <p className="form-switch">
         Already have an account? <Link className="text-link" href={`/sign-in?next=${encodeURIComponent(next)}`}>Sign in</Link>

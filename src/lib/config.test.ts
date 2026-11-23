@@ -80,9 +80,14 @@ describe("safeInternalPath", () => {
     "/goals",
     "/history",
     "/settings",
+    "/profile",
+    "/help",
     "/auth/reset-password",
     "/join/" + "a".repeat(64),
     "/app?workspace=aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+    "/settings?tab=profile",
+    "/settings?workspace=aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa&tab=people",
+    "/settings?tab=challenges&workspace=aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
   ])("allows a known internal destination: %s", (path) => {
     expect(safeInternalPath(path)).toBe(path);
   });
@@ -99,6 +104,8 @@ describe("safeInternalPath", () => {
     "/app#//evil.example",
     "/app?next=https://evil.example",
     "/app?workspace=not-a-uuid",
+    "/settings?tab=admin",
+    "/settings?workspace=aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa&tab=people&admin=true",
     "/unknown",
     "https://evil.example",
     "/join/invalid",

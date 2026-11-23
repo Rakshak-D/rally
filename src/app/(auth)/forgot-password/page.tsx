@@ -8,7 +8,7 @@ export const metadata: Metadata = { title: "Recover your password" };
 export default function ForgotPasswordPage() {
   return (
     <AuthCard
-      eyebrow="ACCOUNT ACCESS"
+      eyebrow="Account access"
       title="Get back in."
       description="We'll send a recovery link to the email address on your Rally account."
     >
