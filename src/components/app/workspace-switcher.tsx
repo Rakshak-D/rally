@@ -86,7 +86,7 @@ export function WorkspaceSwitcher({
         onClick={() => setOpen((value) => !value)}
         ref={triggerRef}
       >
-        <span className="workspace-tile" style={{ background: workspaceGradient(selectedWorkspace?.id ?? "rally") }} aria-hidden="true">
+        <span className={`workspace-tile workspace-tile--tone-${workspaceTone(selectedWorkspace?.id ?? "rally")}`} aria-hidden="true">
           {(selectedWorkspace?.name ?? "R").slice(0, 1).toUpperCase()}
         </span>
         <span className="workspace-trigger-copy">
@@ -114,7 +114,7 @@ export function WorkspaceSwitcher({
                   close();
                 }}
               >
-                <span className="workspace-tile workspace-tile--small" style={{ background: workspaceGradient(workspace.id) }} aria-hidden="true">
+                <span className={`workspace-tile workspace-tile--small workspace-tile--tone-${workspaceTone(workspace.id)}`} aria-hidden="true">
                   {workspace.name.slice(0, 1).toUpperCase()}
                 </span>
                 <span className="workspace-option-name">{workspace.name}</span>
@@ -137,9 +137,8 @@ export function WorkspaceSwitcher({
   );
 }
 
-function workspaceGradient(id: string): string {
+function workspaceTone(id: string): number {
   let hash = 0;
   for (const character of id) hash = (hash * 31 + character.charCodeAt(0)) | 0;
-  const hue = Math.abs(hash) % 360;
-  return `linear-gradient(145deg, hsl(${hue} 52% 81%), hsl(${(hue + 27) % 360} 42% 68%))`;
+  return Math.abs(hash) % 6 + 1;
 }

@@ -14,7 +14,7 @@ import { CreateWorkspaceForm } from "@/components/workspace/create-workspace-for
 import { signOutAction } from "@/lib/auth/actions";
 import { requireUser } from "@/lib/auth/current-user";
 import { getWorkspaceDashboard } from "@/lib/data/dashboard";
-import { addCalendarDays, localDateAt } from "@/lib/domain/calendar";
+import { addCalendarDays, formatCalendarDate, localDateAt } from "@/lib/domain/calendar";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Settings" };
@@ -176,7 +176,7 @@ export default async function SettingsPage({
                   {challenges.map((challenge) => (
                     <details className="challenge-settings-item" key={challenge.id}>
                       <summary>
-                        <span><strong>{challenge.title}</strong><small>{challenge.start_date} — {challenge.end_date}</small></span>
+                        <span><strong>{challenge.title}</strong><small>{formatCalendarDate(challenge.start_date)} — {formatCalendarDate(challenge.end_date)}</small></span>
                         <span className={"status-chip status-chip--" + challenge.status}>{challenge.status === "completed" ? "Completed" : challenge.status === "upcoming" ? "Upcoming" : "Active"}</span>
                       </summary>
                       <ChallengeSettingsForm challenge={challenge} canEdit={isOwner} />

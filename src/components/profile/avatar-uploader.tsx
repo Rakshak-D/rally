@@ -237,6 +237,7 @@ export function AvatarUploader({
             onPointerUp={() => { dragRef.current = null; }}
             onPointerCancel={() => { dragRef.current = null; }}
           >
+            {/* Native img is required here because the cropper reads this local blob into canvas. */}
             <img
               ref={imageRef}
               src={previewUrl}

@@ -35,7 +35,7 @@ export function RecordDrawer({
 
   return (
     <>
-      <button ref={triggerRef} className="button button--primary" type="button" onClick={() => dialogRef.current?.showModal()}>
+      <button ref={triggerRef} className="button button--primary" type="button" data-command-target={actionLabel === "New goal" ? "new-goal" : actionLabel === "New task" ? "new-task" : undefined} onClick={() => dialogRef.current?.showModal()}>
         <Icon name="plus" size={18} />{actionLabel}
       </button>
       <dialog

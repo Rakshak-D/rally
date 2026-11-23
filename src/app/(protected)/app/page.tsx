@@ -6,14 +6,13 @@ import { ActivitySection } from "@/components/dashboard/activity-section";
 import { CheckinSection } from "@/components/dashboard/checkin-section";
 import { DashboardRail } from "@/components/dashboard/dashboard-rail";
 import { FirstRunHelper } from "@/components/dashboard/first-run-helper";
-import { StreakRing } from "@/components/dashboard/streak-ring";
-import { TeamSection } from "@/components/dashboard/team-section";
+import { StampLanes } from "@/components/product/stamp-lanes";
 import { CreateChallengeForm } from "@/components/workspace/create-challenge-form";
 import { CreateWorkspaceForm } from "@/components/workspace/create-workspace-form";
 import { requireUser } from "@/lib/auth/current-user";
-import { getWorkspaceDashboard } from "@/lib/data/dashboard";
-import { calendarDateOrdinal, inclusiveChallengeDay, localDateAt } from "@/lib/domain/calendar";
-import { greetingForUser } from "@/lib/domain/today";
+import { getLaneCheckins, getWorkspaceDashboard } from "@/lib/data/dashboard";
+import { buildStampDays } from "@/lib/domain/stamp-lanes";
+import { calendarDateOrdinal, formatCalendarDate, inclusiveChallengeDay, localDateAt } from "@/lib/domain/calendar";
 
 export const metadata: Metadata = { title: "Today" };
 
@@ -26,13 +25,12 @@ export default async function DashboardPage({
   const data = await getWorkspaceDashboard(user.id, params.workspace);
   if (data.invalidWorkspace) notFound();
   const now = new Date();
-  const displayName = data.profile?.display_name || user.email?.split("@")[0] || "Rally member";
 
   if (data.workspaces.length === 0) {
     return (
       <section className="onboarding-wrap">
         <header className="page-heading">
-          <h1>Start showing up together, {displayName.split(/\s+/)[0]}.</h1>
+          <h1>Start with a shared challenge</h1>
           <p>Create a workspace to track your daily progress with friends.</p>
         </header>
         <div className="onboarding-panel">
@@ -47,13 +45,12 @@ export default async function DashboardPage({
   const workspace = data.selectedWorkspace;
   if (!workspace) notFound();
   const localToday = localDateAt(now, workspace.timezone);
-  const greeting = greetingForUser(now, workspace.timezone, displayName);
 
   if (!data.challenge) {
     return (
       <div className="page-wrap">
         <header className="page-heading today-welcome">
-          <h1>{greeting}</h1>
+          <h1>Today</h1>
           <p>Your workspace is ready. Set a shared challenge to start tracking progress.</p>
         </header>
         {workspace.role === "owner" ? (
@@ -87,8 +84,20 @@ export default async function DashboardPage({
     : challenge.status === "upcoming" ? duration : 0;
   const currentStreak = data.teamProgress.find((member) => member.userId === user.id)?.currentStreak ?? 0;
   const longestStreak = data.teamProgress.find((member) => member.userId === user.id)?.longestStreak ?? 0;
+  const laneDays = buildStampDays(challenge.start_date, challenge.end_date, data.today ?? localToday);
+  const laneCheckins = laneDays.length
+    ? await getLaneCheckins(challenge.id, laneDays[0]!.date, laneDays.at(-1)!.date, data.workspaceMembers.map(({ id }) => id))
+    : [];
+  const progressById = new Map(data.teamProgress.map((member) => [member.userId, member]));
+  const laneMembers = data.workspaceMembers.map((member) => ({
+    id: member.id,
+    name: member.display_name,
+    avatarPath: member.avatar_path,
+    isSelf: member.id === user.id,
+    checkedInToday: progressById.get(member.id)?.checkedInToday ?? false,
+  })).sort((left, right) => Number(right.isSelf) - Number(left.isSelf) || Number(right.checkedInToday) - Number(left.checkedInToday) || left.name.localeCompare(right.name));
   const progressText = challenge.status === "upcoming"
-    ? `Starts ${challenge.start_date} · ${duration} days`
+    ? `Starts ${formatCalendarDate(challenge.start_date)} · ${duration} days`
     : challenge.status === "completed"
       ? `${duration} challenge days complete`
       : `Day ${day} of ${duration} · ${daysRemaining} ${daysRemaining === 1 ? "day" : "days"} left`;
@@ -97,15 +106,19 @@ export default async function DashboardPage({
     <div className="page-wrap today-page">
       <header className="today-hero">
         <div className="today-hero-copy">
-          <h1>{greeting}</h1>
-          <p className="today-challenge-title">{challenge.title}</p>
-          {challenge.description && <p className="today-challenge-description">{challenge.description}</p>}
+          <p className="section-kicker">Challenge</p>
+          <h1>{challenge.title}</h1>
+          <p className="today-challenge-title">{formatCalendarDate(data.today ?? localToday)}</p>
           <div className="challenge-progress-copy"><span>{progressText}</span><span>{challenge.status === "active" ? `${Math.round((day / Math.max(duration, 1)) * 100)}%` : ""}</span></div>
           <div className="challenge-progress-track" role="progressbar" aria-label="Challenge progress" aria-valuemin={0} aria-valuemax={Math.max(duration, 1)} aria-valuenow={Math.min(duration, day)} aria-valuetext={progressText}>
             <span style={{ width: `${Math.min(100, Math.max(0, (day / Math.max(duration, 1)) * 100))}%` }} />
           </div>
         </div>
-        <StreakRing current={currentStreak} longest={longestStreak} />
+        <div className="today-run-mark" aria-label={`${currentStreak} day run. Longest run ${longestStreak} days.`}>
+          <strong className="numeric">{currentStreak}</strong>
+          <span>day run</span>
+          <small>Best {longestStreak}</small>
+        </div>
       </header>
 
       {challenge.status === "completed" && (
@@ -120,7 +133,16 @@ export default async function DashboardPage({
       <div className="today-layout">
         <div className="today-main">
           <CheckinSection challenge={challenge} today={data.today ?? localToday} todayCheckin={data.todayCheckin} />
-          <TeamSection progress={data.teamProgress} currentUserId={user.id} workspaceId={workspace.id} canInvite={workspace.role === "owner"} />
+          <section className="today-lanes-panel" aria-labelledby="today-lanes-heading">
+            <header className="today-lanes-heading">
+              <div><h2 id="today-lanes-heading">Group progress</h2><p>One stamp for every day you show up.</p></div>
+              <div className="today-lanes-heading-tools">
+                <span>{laneMembers.length} {laneMembers.length === 1 ? "member" : "members"}</span>
+                {workspace.role === "owner" && <Link className="text-link" href={`/settings?workspace=${encodeURIComponent(workspace.id)}&tab=people#invites-heading`}>Invite people</Link>}
+              </div>
+            </header>
+            <StampLanes members={laneMembers} days={laneDays} checkins={laneCheckins} windowSize={7} animate />
+          </section>
         </div>
         <DashboardRail data={data} workspaceId={workspace.id} />
       </div>

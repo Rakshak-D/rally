@@ -4,12 +4,11 @@ import { useActionState, useEffect, useRef, useState, type FormEvent } from "rea
 
 import { NoteCallout } from "@/components/dashboard/note-callout";
 import { Icon } from "@/components/ui/icons";
-import { TiltCard } from "@/components/ui/tilt-card";
 import { showToast } from "@/components/ui/toast";
 import type { WorkspaceDashboard } from "@/lib/data/dashboard";
-import { initialActionState } from "@/lib/forms/state";
+import { initialActionState, type ActionState } from "@/lib/forms/state";
 import { parseCheckinNote, serializeCheckinNote } from "@/lib/domain/checkin-note";
-import { saveCheckinAction } from "@/lib/workspace/actions";
+import { saveCheckinAction, undoCheckinAction } from "@/lib/workspace/actions";
 
 type TodayCheckin = WorkspaceDashboard["todayCheckin"];
 type CheckinSummary = Pick<NonNullable<TodayCheckin>, "accomplishment" | "next_plan" | "notes">;
@@ -18,22 +17,46 @@ export function CheckinEditor({ challengeId, checkin }: { challengeId: string; c
   const [state, formAction, pending] = useActionState(saveCheckinAction, initialActionState);
   const pendingSummary = useRef<CheckinSummary | null>(null);
   const [saved, setSaved] = useState<CheckinSummary | null>(checkin ?? null);
+  const [undoCheckinId, setUndoCheckinId] = useState<string | null>(null);
   const [editing, setEditing] = useState(!checkin);
   const [noteText, setNoteText] = useState(() => parseCheckinNote(checkin?.notes).text);
   const [isBlocker, setIsBlocker] = useState(() => parseCheckinNote(checkin?.notes).isBlocker);
   const [noteOpen, setNoteOpen] = useState(Boolean(checkin?.notes));
+  const [undoState, undoAction, undoPending] = useActionState(async (previousState: ActionState, formData: FormData): Promise<ActionState> => {
+    const result = await undoCheckinAction(previousState, formData);
+    if (result.kind === "success") {
+      setSaved(null);
+      setEditing(true);
+      setUndoCheckinId(null);
+      setNoteText("");
+      setIsBlocker(false);
+      setNoteOpen(false);
+      showToast(result.message);
+      window.dispatchEvent(new Event("rally:checkin-undone"));
+    }
+    return result;
+  }, initialActionState);
 
   useEffect(() => {
     if (state.kind === "success") {
       if (pendingSummary.current) setSaved(pendingSummary.current);
       pendingSummary.current = null;
       setEditing(false);
+      setUndoCheckinId(state.checkinCreated && state.checkinId ? state.checkinId : null);
       showToast(state.message);
       window.dispatchEvent(new Event("rally:checkin-saved"));
     } else if (state.kind === "error") {
       pendingSummary.current = null;
     }
   }, [state]);
+
+  useEffect(() => {
+    if (!undoCheckinId) return;
+    const timeout = window.setTimeout(() => setUndoCheckinId(null), 6000);
+    return () => window.clearTimeout(timeout);
+  }, [undoCheckinId]);
+
+  const showingSavedResponse = state.kind === "success" && !saved && undoState.kind !== "success";
 
   function captureSubmission(event: FormEvent<HTMLFormElement>) {
     const form = new FormData(event.currentTarget);
@@ -54,18 +77,22 @@ export function CheckinEditor({ challengeId, checkin }: { challengeId: string; c
 
   if (saved && !editing) {
     return (
-      <TiltCard className="checkin-done-summary">
-        <div className="checkin-done-heading"><Icon name="check" size={20} /><strong>Done for today</strong><button className="button button--quiet" type="button" onClick={() => setEditing(true)}>Edit</button></div>
+      <section className="checkin-done-summary">
+        <div className="checkin-done-heading"><Icon name="check" size={20} /><strong>Done for today</strong>
+          {undoCheckinId && <form action={undoAction} className="checkin-undo-form"><input type="hidden" name="checkinId" value={undoCheckinId} /><button className="button button--quiet" type="submit" disabled={undoPending}>Undo</button></form>}
+          <button className="button button--quiet" type="button" onClick={() => setEditing(true)}>Edit</button>
+        </div>
+        {undoState.kind === "error" && undoState.message && <p className="form-message form-message--error" role="alert">{undoState.message}</p>}
         <div className="checkin-done-copy"><span>What moved forward</span><p>{saved.accomplishment}</p></div>
         <div className="checkin-done-copy"><span>What&apos;s next</span><p>{saved.next_plan}</p></div>
         {saved.notes && <NoteCallout note={saved.notes} />}
         {state.kind === "error" && state.message && <p className="form-message form-message--error" role="alert">{state.message}</p>}
-      </TiltCard>
+      </section>
     );
   }
 
   return (
-    <form action={formAction} className={`checkin-form${state.kind === "success" ? " is-saved" : ""}`} onSubmit={captureSubmission}>
+    <form action={formAction} className={`checkin-form${showingSavedResponse ? " is-saved" : ""}`} onSubmit={captureSubmission}>
       <input type="hidden" name="challengeId" value={challengeId} />
       <label className="field-label" htmlFor="accomplishment">
         What did you move forward today?
@@ -97,8 +124,8 @@ export function CheckinEditor({ challengeId, checkin }: { challengeId: string; c
       <div className="checkin-submit-row">
         {saved && <button className="button button--quiet" type="button" onClick={cancelEditing}>Cancel</button>}
         <button className={`button button--primary${state.kind === "success" && !saved ? " button--success" : ""}`} type="submit" disabled={pending}>
-          {pending ? "Saving…" : saved ? "Update check-in" : state.kind === "success" ? "Saved for today" : "Save check-in"}
-          <Icon name={state.kind === "success" && !saved ? "check" : "arrow"} size={17} />
+          {pending ? "Saving…" : saved ? "Update check-in" : showingSavedResponse ? "Saved for today" : "Save check-in"}
+          <Icon name={showingSavedResponse ? "check" : "arrow"} size={17} />
         </button>
       </div>
     </form>

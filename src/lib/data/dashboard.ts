@@ -1,6 +1,7 @@
 import "server-only";
 
 import { addCalendarDays, localDateAt } from "@/lib/domain/calendar";
+import { assertLaneRange } from "@/lib/domain/stamp-lanes";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Enums, Tables } from "@/lib/supabase/database.types";
 
@@ -11,6 +12,8 @@ type ProfileRow = Pick<Tables<"profiles">, "id" | "display_name" | "avatar_path"
 type TaskRow = Pick<Tables<"tasks">, "id" | "title" | "description" | "status" | "due_date" | "owner_id" | "assignee_id" | "deleted_at">;
 type GoalRow = Pick<Tables<"goals">, "id" | "title" | "description" | "status" | "owner_id" | "progress_current" | "progress_target" | "progress_unit" | "deleted_at">;
 type CheckinRow = Pick<Tables<"checkins">, "id" | "user_id" | "checkin_date" | "accomplishment" | "next_plan" | "notes" | "created_at">;
+
+export type LaneCheckin = Pick<Tables<"checkins">, "id" | "challenge_id" | "user_id" | "checkin_date" | "accomplishment" | "next_plan" | "notes" | "created_at">;
 
 export type WorkspaceOption = WorkspaceRow & { role: Enums<"workspace_role"> };
 export type TeamProgress = {
@@ -70,6 +73,36 @@ export async function getWorkspaceOptions(userId: string): Promise<WorkspaceOpti
     ...workspace,
     role: roleByWorkspace.get(workspace.id) ?? "member",
   }));
+}
+
+export async function getLaneCheckins(
+  challengeId: string,
+  startDate: string,
+  endDate: string,
+  memberIds: string[],
+): Promise<LaneCheckin[]> {
+  assertLaneRange(startDate, endDate);
+  const userIds = [...new Set(memberIds)];
+  if (!userIds.length) return [];
+
+  const supabase = await createSupabaseServerClient();
+  const pageSize = 500;
+  const rows: LaneCheckin[] = [];
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await supabase.from("checkins")
+      .select("id, challenge_id, user_id, checkin_date, accomplishment, next_plan, notes, created_at")
+      .eq("challenge_id", challengeId)
+      .in("user_id", userIds)
+      .gte("checkin_date", startDate)
+      .lte("checkin_date", endDate)
+      .order("checkin_date", { ascending: true })
+      .order("created_at", { ascending: true })
+      .range(offset, offset + pageSize - 1);
+    failOnError(error, "Challenge lane check-ins");
+    const page = data ?? [];
+    rows.push(...page);
+    if (page.length < pageSize) return rows;
+  }
 }
 
 function failOnError(error: { message: string } | null, section: string): void {
@@ -196,10 +229,10 @@ export async function getWorkspaceDashboard(
       .eq("challenge_id", challenge.id).order("checkin_date", { ascending: false }).order("created_at", { ascending: false }).limit(8),
     supabase.from("checkins").select("checkin_date")
       .eq("challenge_id", challenge.id).eq("user_id", userId).gte("checkin_date", windowStart).lte("checkin_date", today).order("checkin_date", { ascending: true }).limit(35),
-    supabase.from("tasks").select("id, title, description, status, due_date, owner_id, assignee_id, deleted_at")
+    supabase.from("tasks").select("id, title, description, status, due_date, owner_id, assignee_id, deleted_at, sort_order")
       .eq("workspace_id", selectedWorkspace.id).eq("challenge_id", challenge.id).neq("status", "completed")
       .is("deleted_at", null)
-      .order("due_date", { ascending: true, nullsFirst: false }).limit(8),
+      .order("sort_order", { ascending: true }).order("created_at", { ascending: true }).order("id", { ascending: true }).limit(8),
     supabase.from("goals").select("id, title, description, status, owner_id, progress_current, progress_target, progress_unit, deleted_at")
       .eq("workspace_id", selectedWorkspace.id).eq("challenge_id", challenge.id).eq("status", "active").is("deleted_at", null)
       .order("updated_at", { ascending: false }).limit(6),

@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { MemberAvatar } from "@/components/dashboard/member-avatar";
-import { TiltCard } from "@/components/ui/tilt-card";
 import { CreateGoalForm, DeletedGoalList, EditGoalForm } from "@/components/product/goal-task-forms";
 import { RecordDrawer } from "@/components/product/record-drawer";
 import { RecordEmptyState } from "@/components/product/record-empty-state";
@@ -102,22 +101,26 @@ export default async function GoalsPage({ searchParams }: { searchParams: Promis
           {goals.map((goal) => {
             const owner = members.get(goal.owner_id);
             return (
-              <TiltCard as="li" className={`record-card${goal.status === "completed" ? " record-card--complete" : ""}`} key={goal.id}>
-                <div className="record-card-top">
-                  <span className={`status-chip status-chip--${goal.status}`}>{goal.status === "active" ? "Active" : "Completed"}</span>
-                  <div className="record-owner"><MemberAvatar name={owner?.display_name ?? "Rally member"} userId={goal.owner_id} src={owner?.avatar_path} size="sm" /><span>{goal.owner_id === user.id ? "You" : owner?.display_name ?? "Rally member"}</span></div>
+              <li className={`record-card goal-row${goal.status === "completed" ? " record-card--complete" : ""}`} key={goal.id}>
+                <div className="goal-row-main">
+                  <div className="record-card-top">
+                    <span className={`status-chip status-chip--${goal.status}`}>{goal.status === "active" ? "Active" : "Completed"}</span>
+                    <div className="record-owner"><MemberAvatar name={owner?.display_name ?? "Rally member"} userId={goal.owner_id} src={owner?.avatar_path} size="sm" /><span>{goal.owner_id === user.id ? "You" : owner?.display_name ?? "Rally member"}</span></div>
+                  </div>
+                  <h2>{goal.title}</h2>
+                  {goal.description && <p className="record-description">{goal.description}</p>}
                 </div>
-                <h2>{goal.title}</h2>
-                {goal.description && <p className="record-description">{goal.description}</p>}
-                <GoalProgressView
-                  current={goal.progress_current}
-                  target={goal.progress_target}
-                  unit={goal.progress_unit}
-                  timezone={workspace.timezone}
-                  history={(historyByGoal.get(goal.id) ?? []).map((entry) => ({ ...entry, displayName: members.get(entry.changed_by ?? "")?.display_name ?? "Rally member" }))}
-                />
+                <div className="goal-row-progress">
+                  <GoalProgressView
+                    current={goal.progress_current}
+                    target={goal.progress_target}
+                    unit={goal.progress_unit}
+                    timezone={workspace.timezone}
+                    history={(historyByGoal.get(goal.id) ?? []).map((entry) => ({ ...entry, displayName: members.get(entry.changed_by ?? "")?.display_name ?? "Rally member" }))}
+                  />
+                </div>
                 {goal.owner_id === user.id && <EditGoalForm goal={goal} />}
-              </TiltCard>
+              </li>
             );
           })}
         </ul>

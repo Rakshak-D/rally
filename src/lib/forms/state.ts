@@ -8,6 +8,8 @@ export type ActionState = {
   email?: string;
   nextPath?: string;
   fieldErrors?: Record<string, string>;
+  checkinId?: string;
+  checkinCreated?: boolean;
 };
 
 export const initialActionState: ActionState = { kind: "idle", message: "" };

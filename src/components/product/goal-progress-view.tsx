@@ -1,5 +1,6 @@
 import type { Tables } from "@/lib/supabase/database.types";
 import { goalProgressPercent } from "@/lib/domain/goal-progress";
+import { formatCalendarDate, localDateAt } from "@/lib/domain/calendar";
 
 type HistoryEntry = Tables<"goal_progress_history"> & { displayName: string };
 
@@ -65,12 +66,8 @@ function formatAmount(value: number): string {
 }
 
 function formatRecordedAt(value: string, timezone: string): string {
-  return new Intl.DateTimeFormat("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: timezone,
-  }).format(new Date(value));
+  const recordedAt = new Date(value);
+  const localDate = localDateAt(recordedAt, timezone);
+  const time = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: timezone }).format(recordedAt);
+  return `${formatCalendarDate(localDate)} · ${time}`;
 }

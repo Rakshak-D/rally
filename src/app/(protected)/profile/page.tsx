@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { AvatarUploader } from "@/components/profile/avatar-uploader";
 import { requireUser } from "@/lib/auth/current-user";
 import { getWorkspaceDashboard } from "@/lib/data/dashboard";
+import { formatCalendarDate, localDateAt } from "@/lib/domain/calendar";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Profile" };
@@ -26,7 +27,7 @@ export default async function ProfilePage() {
   const displayName = profile?.display_name ?? user.email?.split("@")[0] ?? "Rally member";
   const progress = data.teamProgress.find((member) => member.userId === user.id);
   const memberSince = profile?.created_at
-    ? new Intl.DateTimeFormat("en", { dateStyle: "long", timeZone: "UTC" }).format(new Date(profile.created_at))
+    ? formatCalendarDate(localDateAt(new Date(profile.created_at), "UTC"))
     : "Recently";
 
   return (

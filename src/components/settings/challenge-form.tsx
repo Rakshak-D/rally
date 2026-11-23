@@ -5,6 +5,7 @@ import { useActionState, useId } from "react";
 import { useActionToast } from "@/components/ui/toast";
 import { initialActionState } from "@/lib/forms/state";
 import { updateChallengeAction } from "@/lib/workspace/actions";
+import { formatCalendarDate } from "@/lib/domain/calendar";
 import type { WorkspaceDashboard } from "@/lib/data/dashboard";
 
 type Challenge = NonNullable<WorkspaceDashboard["challenge"]>;
@@ -35,7 +36,7 @@ export function ChallengeSettingsForm({ challenge, canEdit }: { challenge: Chall
         <div className="settings-date-note">
           <input type="hidden" name="startDate" value={challenge.start_date} />
           <input type="hidden" name="endDate" value={challenge.end_date} />
-          <span className="field-hint">DATES · {challenge.start_date} — {challenge.end_date}</span>
+          <span className="field-hint">Dates · {formatCalendarDate(challenge.start_date)} — {formatCalendarDate(challenge.end_date)}</span>
           <span className="field-hint">Challenge dates and timezone lock once the challenge begins.</span>
         </div>
       ) : (

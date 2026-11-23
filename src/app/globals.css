@@ -9,12 +9,10 @@
 @import "./styles/base.css";
 
 @theme inline {
-  --font-sans: var(--font-plus-jakarta);
-  --font-mono: var(--font-ibm-plex-mono);
-  --color-paper: var(--bg);
-  --color-ink: var(--text);
-  --color-muted: var(--text-muted);
-  --color-rally: var(--primary);
-  --color-forest: var(--success);
-  --color-line: var(--border);
+  --font-sans: var(--font-ui);
+  --color-paper: var(--paper);
+  --color-ink: var(--ink);
+  --color-muted: var(--ink-2);
+  --color-rally: var(--stamp);
+  --color-line: var(--rule-soft);
 }

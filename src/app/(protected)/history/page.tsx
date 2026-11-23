@@ -2,16 +2,16 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { HistoryCalendar } from "@/components/history/calendar-view";
 import { HistoryFilters } from "@/components/history/history-filters";
-import { WeeklyBars } from "@/components/history/weekly-bars";
 import { MemberAvatar } from "@/components/dashboard/member-avatar";
 import { NoteCallout } from "@/components/dashboard/note-callout";
+import { StampLanes } from "@/components/product/stamp-lanes";
 import { requireUser } from "@/lib/auth/current-user";
-import { getWorkspaceDashboard } from "@/lib/data/dashboard";
-import { addCalendarDays, localDateAt } from "@/lib/domain/calendar";
-import { buildHistoryCalendarDays } from "@/lib/domain/history-calendar";
+import { getLaneCheckins, getWorkspaceDashboard } from "@/lib/data/dashboard";
+import { addCalendarDays, formatCalendarDate, localDateAt } from "@/lib/domain/calendar";
+import { buildStampDays } from "@/lib/domain/stamp-lanes";
 import { relativeTimeLabel } from "@/lib/domain/today";
+import { aggregateWeeklyCheckins } from "@/lib/domain/weekly-checkins";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "History" };
@@ -37,12 +37,7 @@ function pageHref(search: SearchParams, page: number): string {
 function dateHeading(date: string, today: string): string {
   if (date === today) return "Today";
   if (date === addCalendarDays(today, -1)) return "Yesterday";
-  return new Intl.DateTimeFormat("en-GB", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    timeZone: "UTC",
-  }).format(new Date(`${date}T00:00:00.000Z`));
+  return formatCalendarDate(date);
 }
 
 export default async function HistoryPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
@@ -98,14 +93,20 @@ export default async function HistoryPage({ searchParams }: { searchParams: Prom
   const challengeNames = new Map((challenges ?? []).map((challenge) => [challenge.id, challenge.title]));
   const challengeTimezones = new Map((challenges ?? []).map((challenge) => [challenge.id, challenge.timezone ?? workspace.timezone]));
   const calendarDays = calendarResult.data ?? [];
-  const visibleCalendarDays = calendarChallenge
-    ? buildHistoryCalendarDays(calendarDays, {
-        startDate: calendarChallenge.start_date,
-        endDate: calendarChallenge.end_date,
-        today,
-      })
+  const laneDays = calendarChallenge
+    ? buildStampDays(calendarChallenge.start_date, calendarChallenge.end_date, today, 84)
     : [];
-  const calendarScope = selectedMember ? `${selectedMember.display_name} · ${calendarChallenge?.title ?? "Challenge"}` : calendarChallenge?.title ?? "No challenge yet";
+  const laneMembers = (selectedMember ? [selectedMember] : data.workspaceMembers).map((member) => ({
+    id: member.id,
+    name: member.display_name,
+    avatarPath: member.avatar_path,
+    isSelf: member.id === user.id,
+  }));
+  const laneCheckins = calendarChallenge && laneDays.length
+    ? await getLaneCheckins(calendarChallenge.id, laneDays[0]!.date, laneDays.at(-1)!.date, laneMembers.map(({ id }) => id))
+    : [];
+  const weeklyTotals = aggregateWeeklyCheckins(calendarDays).slice(-7);
+  const calendarScope = selectedMember ? `Showing ${selectedMember.display_name} on ${calendarChallenge?.title ?? "this challenge"}` : calendarChallenge?.title ?? "No challenge yet";
 
   return (
     <div className="page-wrap history-page">
@@ -126,8 +127,14 @@ export default async function HistoryPage({ searchParams }: { searchParams: Prom
       </section>
 
       <div className="history-visualizations">
-        <HistoryCalendar days={visibleCalendarDays} today={today} />
-        <WeeklyBars days={calendarDays} memberLabel={selectedMember?.display_name ?? "All members"} />
+        <section className="history-panel history-lanes-panel" aria-labelledby="history-lanes-heading">
+          <div className="records-section-heading"><div><h2 id="history-lanes-heading">Group progress</h2><p>{calendarScope}</p></div></div>
+          <StampLanes members={laneMembers} days={laneDays} checkins={laneCheckins} windowSize={14} allowExpand />
+        </section>
+        <section className="history-panel history-week-summary" aria-labelledby="weekly-totals-heading">
+          <div className="records-section-heading"><div><h2 id="weekly-totals-heading">Weekly totals</h2><p>Check-ins across the group</p></div></div>
+          {weeklyTotals.length ? <ol>{weeklyTotals.map(({ weekStart, checkinCount }) => <li key={weekStart}><span>Week of {formatCalendarDate(weekStart)}</span><strong>{checkinCount}</strong></li>)}</ol> : <p className="quiet-copy">Weekly totals appear after the first check-in.</p>}
+        </section>
       </div>
 
       <section className="history-panel history-feed" aria-labelledby="history-feed-heading">

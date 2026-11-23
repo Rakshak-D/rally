@@ -45,6 +45,24 @@ export function localDateAt(instant: Date, timeZone: string): string {
   return `${year.padStart(4, "0")}-${month}-${day}`;
 }
 
+export function formatCalendarDate(value: string): string {
+  const ordinal = calendarDateOrdinal(value);
+  if (ordinal === null) throw new RangeError("Enter a real calendar date.");
+
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "UTC",
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  }).formatToParts(new Date(ordinal * MILLISECONDS_PER_CALENDAR_DAY));
+  const values = new Map(parts.map(({ type, value: part }) => [type, part]));
+  const weekday = values.get("weekday");
+  const day = values.get("day");
+  const month = values.get("month");
+  if (!weekday || !day || !month) throw new RangeError("Unable to format the calendar date.");
+  return `${weekday} ${day} ${month}`;
+}
+
 export function inclusiveChallengeDay(
   startDate: string,
   endDate: string,

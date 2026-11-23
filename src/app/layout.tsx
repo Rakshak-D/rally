@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { IBM_Plex_Mono, Plus_Jakarta_Sans } from "next/font/google";
+import { Big_Shoulders as Big_Shoulders_Display, Hanken_Grotesk } from "next/font/google";
 
 import { ThemeProvider } from "@/components/app/theme-provider";
 import { SkipLink } from "@/components/app/skip-link";
 import "./globals.css";
 
-const plusJakarta = Plus_Jakarta_Sans({ subsets: ["latin"], weight: ["400", "500", "600", "700", "800"], variable: "--font-plus-jakarta", display: "swap" });
-const ibmPlexMono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "500"], variable: "--font-ibm-plex-mono", display: "swap" });
+const displayFont = Big_Shoulders_Display({ subsets: ["latin"], weight: ["700", "800"], variable: "--font-display", display: "swap", adjustFontFallback: false, fallback: ["Arial"] });
+const uiFont = Hanken_Grotesk({ subsets: ["latin"], weight: ["400", "500", "700"], variable: "--font-ui", display: "swap" });
 
 export const metadata: Metadata = {
   applicationName: "Rally",
@@ -21,7 +21,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" data-scroll-behavior="smooth">
-      <body className={`${plusJakarta.variable} ${ibmPlexMono.variable}`}>
+      <body className={`${displayFont.variable} ${uiFont.variable}`}>
         <ThemeProvider>
           <SkipLink />
           {children}

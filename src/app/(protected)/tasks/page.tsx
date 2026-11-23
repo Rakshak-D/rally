@@ -7,9 +7,10 @@ import { RecordDrawer } from "@/components/product/record-drawer";
 import { RecordEmptyState } from "@/components/product/record-empty-state";
 import { RecordStatusFilters } from "@/components/product/record-status-filters";
 import { TaskStatusControl } from "@/components/product/task-status-control";
+import { TaskOrderControls } from "@/components/product/task-order-controls";
 import { requireUser } from "@/lib/auth/current-user";
 import { getWorkspaceDashboard } from "@/lib/data/dashboard";
-import { addCalendarDays, localDateAt } from "@/lib/domain/calendar";
+import { addCalendarDays, formatCalendarDate, localDateAt } from "@/lib/domain/calendar";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Tables } from "@/lib/supabase/database.types";
 
@@ -32,7 +33,7 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
     ? params.status as Task["status"]
     : "all";
   let tasksQuery = supabase.from("tasks").select("*").eq("workspace_id", workspace.id).is("deleted_at", null)
-    .order("due_date", { ascending: true, nullsFirst: false }).order("updated_at", { ascending: false }).limit(100);
+    .order("status", { ascending: true }).order("sort_order", { ascending: true }).order("created_at", { ascending: true }).order("id", { ascending: true }).limit(100);
   if (selectedStatus !== "all") tasksQuery = tasksQuery.eq("status", selectedStatus);
 
   const taskCountQuery = Promise.all(taskStatuses.map((status) => supabase.from("tasks")
@@ -98,17 +99,26 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
             const overdue = Boolean(task.due_date && task.status !== "completed" && task.due_date < challengeToday);
             const dueSoon = Boolean(task.due_date && task.status !== "completed" && !overdue && task.due_date <= dueSoonDate);
             const canUpdateStatus = task.owner_id === user.id || task.assignee_id === user.id;
+            const statusPeers = tasks.filter((candidate) => candidate.status === task.status);
+            const statusIndex = statusPeers.findIndex((candidate) => candidate.id === task.id);
             return (
               <li className={`record-card task-card${task.status === "completed" ? " record-card--complete" : ""}`} key={task.id}>
                 <div className="task-card-top">
                   {canUpdateStatus ? <TaskStatusControl task={task} userId={user.id} /> : <span className={`status-chip status-chip--${task.status}`}>{task.status === "in_progress" ? "In progress" : task.status === "todo" ? "To do" : "Done"}</span>}
                   <span className="task-created-by">Added by {task.owner_id === user.id ? "you" : owner?.display_name ?? "Rally member"}</span>
+                  {task.owner_id === user.id && <TaskOrderControls
+                    taskId={task.id}
+                    title={task.title}
+                    previousTaskId={statusPeers[statusIndex - 1]?.id ?? null}
+                    taskAfterNextId={statusPeers[statusIndex + 2]?.id ?? null}
+                    canMoveDown={statusIndex < statusPeers.length - 1}
+                  />}
                 </div>
                 <h2>{task.title}</h2>
                 {task.description && <p className="record-description">{task.description}</p>}
                 <div className="task-card-meta">
                   <div className="record-owner"><MemberAvatar name={assignee?.display_name ?? "Unassigned"} userId={task.assignee_id ?? undefined} src={assignee?.avatar_path} size="sm" /><span>{assignee ? `Assigned to ${assignee.display_name}` : "Unassigned"}</span></div>
-                  {task.due_date && <time className={`record-due${overdue ? " is-overdue" : dueSoon ? " is-due-soon" : ""}`} dateTime={task.due_date}>{overdue ? "Overdue" : dueSoon ? "Due soon" : "Due"} · {task.due_date}</time>}
+              {task.due_date && <time className={`record-due${overdue ? " is-overdue" : dueSoon ? " is-due-soon" : ""}`} dateTime={task.due_date}>{overdue ? "Overdue" : dueSoon ? "Due soon" : "Due"} · {formatCalendarDate(task.due_date)}</time>}
                 </div>
                 {task.owner_id === user.id && <EditTaskForm task={task} members={data.workspaceMembers} />}
               </li>
@@ -116,7 +126,7 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
           })}
         </ul>
       )}
-      {tasks.length >= 100 && <p className="quiet-copy">Showing the 100 nearest or most recently updated tasks in this view.</p>}
+      {tasks.length >= 100 && <p className="quiet-copy">Showing the first 100 tasks in this workspace order.</p>}
       <DeletedTaskList tasks={deletedTasks} />
     </div>
   );

@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(105);
+select plan(143);
 
 select has_table('public', 'profiles', 'profiles table exists');
 select has_table('public', 'workspaces', 'workspaces table exists');
@@ -14,6 +14,7 @@ select has_table('public', 'tasks', 'tasks table exists');
 select has_table('public', 'goal_progress_history', 'goal progress history table exists');
 select has_column('public', 'profiles', 'avatar_path', 'profile avatar path is available');
 select has_column('public', 'profiles', 'tagline', 'profile tagline is available');
+select has_column('public', 'tasks', 'sort_order', 'tasks have a shared persisted order');
 select ok(exists (select 1 from pg_catalog.pg_policies where schemaname = 'storage' and tablename = 'objects' and policyname = 'Rally avatar owners can insert their own images'), 'avatar inserts are scoped to the user folder');
 select ok(exists (select 1 from pg_catalog.pg_policies where schemaname = 'storage' and tablename = 'objects' and policyname = 'Rally avatar owners can read their own image records'), 'avatar upserts can inspect only the user folder');
 select ok(exists (select 1 from pg_catalog.pg_policies where schemaname = 'storage' and tablename = 'objects' and policyname = 'Rally avatar owners can update their own images'), 'avatar updates are scoped to the user folder');
@@ -26,6 +27,15 @@ select ok(has_column_privilege('authenticated', 'public.profiles', 'tagline', 'U
 select ok(pg_catalog.to_regprocedure('public.transfer_workspace_ownership(uuid,uuid)') is not null, 'ownership transfer function exists');
 select ok(pg_catalog.to_regprocedure('public.update_assigned_task_status(uuid,public.task_status)') is not null, 'assigned task status function exists');
 select ok(not has_function_privilege('anon', 'public.transfer_workspace_ownership(uuid,uuid)', 'EXECUTE'), 'anonymous users cannot call ownership transfer');
+select ok(pg_catalog.to_regprocedure('public.undo_checkin(uuid)') is not null, 'check-in undo function exists');
+select ok(pg_catalog.to_regprocedure('public.reorder_task(uuid,uuid)') is not null, 'task ordering function exists');
+select ok(not has_function_privilege('anon', 'public.undo_checkin(uuid)', 'EXECUTE'), 'anonymous users cannot undo check-ins');
+select ok(not has_function_privilege('anon', 'public.reorder_task(uuid,uuid)', 'EXECUTE'), 'anonymous users cannot reorder tasks');
+select ok(has_function_privilege('authenticated', 'public.undo_checkin(uuid)', 'EXECUTE'), 'authenticated members can request check-in undo');
+select ok(has_function_privilege('authenticated', 'public.reorder_task(uuid,uuid)', 'EXECUTE'), 'authenticated members can request their own task ordering');
+select ok(not has_column_privilege('authenticated', 'public.tasks', 'sort_order', 'UPDATE'), 'members cannot bypass task-order authorization through direct updates');
+select ok(not has_column_privilege('authenticated', 'public.tasks', 'sort_order', 'INSERT'), 'members cannot choose a task position when creating records');
+select has_index('public', 'tasks', 'tasks_workspace_status_order_idx', 'workspace task order is indexed');
 select has_view('public', 'challenge_status', 'challenge status view exists');
 select ok(
   pg_catalog.to_regprocedure('public.get_challenge_progress(uuid)') is not null,
@@ -110,10 +120,12 @@ insert into public.workspace_members (workspace_id, user_id, role) values
 
 insert into public.challenges (id, workspace_id, title, start_date, end_date, timezone, created_by) values
   ('cccccccc-cccc-cccc-cccc-cccccccccccc', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Steady Practice', current_date - 2, current_date + 60, 'UTC', '11111111-1111-1111-1111-111111111111'),
-  ('00000000-0000-0000-0000-000000000002', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Finished practice', current_date - 20, current_date - 10, 'UTC', '11111111-1111-1111-1111-111111111111');
+  ('00000000-0000-0000-0000-000000000002', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Finished practice', current_date - 20, current_date - 10, 'UTC', '11111111-1111-1111-1111-111111111111'),
+  ('00000000-0000-0000-0000-000000000003', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Private practice', current_date - 2, current_date + 60, 'UTC', '33333333-3333-3333-3333-333333333333');
 
 insert into public.tasks (id, workspace_id, challenge_id, owner_id, title, status) values
-  ('dddddddd-dddd-dddd-dddd-dddddddddddd', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'cccccccc-cccc-cccc-cccc-cccccccccccc', '11111111-1111-1111-1111-111111111111', 'Owner task', 'todo');
+  ('dddddddd-dddd-dddd-dddd-dddddddddddd', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'cccccccc-cccc-cccc-cccc-cccccccccccc', '11111111-1111-1111-1111-111111111111', 'Owner task', 'todo'),
+  ('dddddddd-dddd-dddd-dddd-ddddddddddde', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', '00000000-0000-0000-0000-000000000003', '33333333-3333-3333-3333-333333333333', 'Private task', 'todo');
 
 insert into public.checkins (id, challenge_id, user_id, checkin_date, accomplishment, next_plan) values
   ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee', 'cccccccc-cccc-cccc-cccc-cccccccccccc', '22222222-2222-2222-2222-222222222222', current_date - 1, 'Yesterday update', 'Today plan');
@@ -310,7 +322,122 @@ select is(
   'the atomic check-in action updates only the member current-day entry'
 );
 
+insert into public.tasks (workspace_id, challenge_id, title, status)
+values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'cccccccc-cccc-cccc-cccc-cccccccccccc', 'Member ordering task', 'in_progress');
+select ok(
+  (select sort_order from public.tasks where title = 'Member ordering task')
+    > (select sort_order from public.tasks where title = 'Member task'),
+  'new tasks append to the end of their shared status lane'
+);
+select is(
+  public.reorder_task(
+    (select id from public.tasks where title = 'Member task'),
+    (select id from public.tasks where title = 'Member ordering task')
+  ),
+  true,
+  'a member can place a task they created before another shared task'
+);
+select ok(
+  (select sort_order from public.tasks where title = 'Member task')
+    < (select sort_order from public.tasks where title = 'Member ordering task'),
+  'task ordering persists in the shared workspace list'
+);
+select throws_ok(
+  $$select public.reorder_task((select id from public.tasks where title = 'Owner task'), null)$$,
+  '42501', null, 'a member cannot reorder a task created by another member'
+);
+select throws_ok(
+  $$select public.reorder_task((select id from public.tasks where title = 'Member task'), (select id from public.tasks where title = 'Owner task'))$$,
+  '22023', null, 'tasks cannot be moved across status lanes'
+);
+select throws_ok(
+  $$select public.reorder_task((select id from public.tasks where title = 'Member task'), 'dddddddd-dddd-dddd-dddd-ddddddddddde')$$,
+  '22023', null, 'task ordering cannot use an anchor from another workspace'
+);
+
 select set_config('request.jwt.claim.sub', '11111111-1111-1111-1111-111111111111', true);
+reset role;
+insert into public.checkins (id, challenge_id, user_id, checkin_date, accomplishment, next_plan)
+values ('99999999-9999-9999-9999-999999999999', 'cccccccc-cccc-cccc-cccc-cccccccccccc', '11111111-1111-1111-1111-111111111111', current_date, 'An old check-in', 'Keep going');
+set local session_replication_role = replica;
+update public.checkins
+set created_at = pg_catalog.clock_timestamp() - interval '6 seconds', updated_at = pg_catalog.clock_timestamp() - interval '6 seconds'
+where id = '99999999-9999-9999-9999-999999999999';
+set local session_replication_role = origin;
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '11111111-1111-1111-1111-111111111111', true);
+select is(public.undo_checkin('99999999-9999-9999-9999-999999999999'), false, 'check-ins cannot be undone at the six-second boundary');
+select is((select count(*)::integer from public.checkins where id = '99999999-9999-9999-9999-999999999999'), 1, 'an expired undo leaves the check-in intact');
+reset role;
+set local session_replication_role = replica;
+update public.checkins
+set checkin_date = current_date - 1,
+    created_at = pg_catalog.clock_timestamp(),
+    updated_at = pg_catalog.clock_timestamp()
+where id = '99999999-9999-9999-9999-999999999999';
+set local session_replication_role = origin;
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '11111111-1111-1111-1111-111111111111', true);
+select is(public.undo_checkin('99999999-9999-9999-9999-999999999999'), false, 'check-ins from a prior challenge-local day cannot be undone');
+select is((select count(*)::integer from public.checkins where id = '99999999-9999-9999-9999-999999999999'), 1, 'a date-ineligible check-in remains available in history');
+reset role;
+delete from public.checkins where id = '99999999-9999-9999-9999-999999999999';
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '11111111-1111-1111-1111-111111111111', true);
+select is(
+  public.reorder_task(
+    (select id from public.tasks where title = 'Owner task'),
+    (select id from public.tasks where title = 'Assignment cleanup task')
+  ),
+  true,
+  'an owner can reorder a task they created'
+);
+select ok(
+  (select sort_order from public.tasks where title = 'Owner task')
+    < (select sort_order from public.tasks where title = 'Assignment cleanup task'),
+  'the owner reordering remains visible to every workspace member'
+);
+select is(
+  public.undo_checkin((select id from public.checkins where user_id = '22222222-2222-2222-2222-222222222222' and checkin_date = (now() at time zone 'UTC')::date)),
+  false,
+  'a member cannot undo another users check-in'
+);
+select is(
+  (select count(*)::integer from public.checkins where user_id = '22222222-2222-2222-2222-222222222222' and checkin_date = (now() at time zone 'UTC')::date),
+  1,
+  'a rejected check-in undo preserves the other members record'
+);
+create temporary table rally_test_checkin(result jsonb) on commit drop;
+insert into rally_test_checkin
+select public.save_checkin('cccccccc-cccc-cccc-cccc-cccccccccccc', 'A check-in to undo', 'Keep the momentum', null);
+select is((select result ->> 'status' from rally_test_checkin), 'created', 'a new check-in save reports creation');
+select ok((select result ->> 'checkin_id' is not null from rally_test_checkin), 'a new check-in save returns its id for the undo window');
+select ok(public.undo_checkin((select (result ->> 'checkin_id')::uuid from rally_test_checkin)), 'a member can undo a newly created check-in inside six seconds');
+select is(
+  (select count(*)::integer from public.checkins where user_id = '11111111-1111-1111-1111-111111111111' and checkin_date = (now() at time zone 'UTC')::date),
+  0,
+  'a successful undo removes only the new check-in'
+);
+select is(public.undo_checkin((select (result ->> 'checkin_id')::uuid from rally_test_checkin)), false, 'a check-in undo cannot be replayed');
+select is((select current_streak from public.get_challenge_progress('cccccccc-cccc-cccc-cccc-cccccccccccc') where user_id = '11111111-1111-1111-1111-111111111111'), 0, 'streak calculations reflect an undone check-in');
+select is((select longest_streak from public.get_challenge_progress('cccccccc-cccc-cccc-cccc-cccccccccccc') where user_id = '11111111-1111-1111-1111-111111111111'), 0, 'longest streak reflects an undone check-in');
+select is((select completed_days from public.get_challenge_progress('cccccccc-cccc-cccc-cccc-cccccccccccc') where user_id = '11111111-1111-1111-1111-111111111111'), 0, 'completed-day totals reflect an undone check-in');
+select is((select checked_in_today from public.get_challenge_progress('cccccccc-cccc-cccc-cccc-cccccccccccc') where user_id = '11111111-1111-1111-1111-111111111111'), false, 'today progress reflects an undone check-in');
+truncate table rally_test_checkin;
+insert into rally_test_checkin
+select public.save_checkin('cccccccc-cccc-cccc-cccc-cccccccccccc', 'An edited check-in', 'Keep the momentum', null);
+select ok((select result ->> 'checkin_id' is not null from rally_test_checkin), 'the follow-up check-in is created before edit validation');
+select is(public.save_checkin('cccccccc-cccc-cccc-cccc-cccccccccccc', 'An edited check-in, now changed', 'Keep the momentum', null) ->> 'status', 'updated', 'a check-in update remains supported');
+select is(
+  public.undo_checkin((select (result ->> 'checkin_id')::uuid from rally_test_checkin)),
+  false,
+  'an edited check-in is no longer eligible for undo'
+);
+select is(
+  (select accomplishment from public.checkins where user_id = '11111111-1111-1111-1111-111111111111' and checkin_date = (now() at time zone 'UTC')::date),
+  'An edited check-in, now changed',
+  'a rejected undo preserves edited progress'
+);
 select throws_ok(
   $$insert into public.challenges (workspace_id, title, start_date, end_date, timezone) values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Overlapping challenge', current_date, current_date + 1, 'UTC')$$,
   '23P01', null, 'overlapping challenge windows are rejected'
@@ -353,6 +480,10 @@ update public.workspaces set name = 'Owned by invitee' where id = 'aaaaaaaa-aaaa
 select is((select name from public.workspaces where id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'), 'Owned by invitee', 'the new owner can manage the workspace');
 
 select set_config('request.jwt.claim.sub', '33333333-3333-3333-3333-333333333333', true);
+select throws_ok(
+  $$select public.reorder_task((select id from public.tasks where title = 'Owner task'), null)$$,
+  '42501', null, 'a nonmember cannot reorder shared workspace tasks'
+);
 select throws_ok(
   $$select * from public.get_challenge_calendar('cccccccc-cccc-cccc-cccc-cccccccccccc', 28, null)$$,
   '42501', null, 'outsiders cannot query the challenge calendar'

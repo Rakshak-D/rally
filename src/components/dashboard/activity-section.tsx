@@ -15,7 +15,7 @@ export function ActivitySection({ checkins, currentUserId, workspaceId, now = ne
     <section className="activity-panel" aria-labelledby="activity-heading">
       <header className="activity-heading">
         <div><h2 id="activity-heading">Recent activity</h2><p>The latest check-ins from your circle.</p></div>
-        <Link className="text-link" href={`/history?workspace=${encodeURIComponent(workspaceId)}`}>View history <span aria-hidden="true">→</span></Link>
+        <Link className="text-link" href={`/history?workspace=${encodeURIComponent(workspaceId)}`}>View history</Link>
       </header>
       {checkins.length === 0 ? (
         <div className="activity-empty"><p>Updates will appear here.</p><span>Share your first check-in to start the conversation.</span></div>

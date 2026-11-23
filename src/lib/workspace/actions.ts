@@ -8,7 +8,7 @@ import { getSiteUrl } from "@/lib/config";
 import { safeDatabaseMessage, type DatabaseErrorLike } from "@/lib/data/database-errors";
 import type { ActionState } from "@/lib/forms/state";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { assignedTaskStatusSchema, checkinSchema, challengeSchema, goalSchema, taskSchema, updateChallengeSchema, updateGoalSchema, updateTaskSchema } from "@/lib/validation/product";
+import { assignedTaskStatusSchema, checkinSchema, challengeSchema, goalSchema, reorderTaskSchema, taskSchema, undoCheckinSchema, updateChallengeSchema, updateGoalSchema, updateTaskSchema } from "@/lib/validation/product";
 import { avatarPathSchema, createInviteSchema, createWorkspaceSchema, inviteTokenSchema, transferWorkspaceOwnershipSchema, updateProfileSchema, updateWorkspaceSchema } from "@/lib/validation/workspace";
 import { validationFailure } from "@/lib/forms/state";
 
@@ -392,14 +392,35 @@ export async function saveCheckinAction(
     validation: "The challenge is outside its check-in dates.",
   });
 
-  const status = data && typeof data === "object" && !Array.isArray(data) ? data.status : null;
-  if (status !== "created" && status !== "updated") {
+  const result = data && typeof data === "object" && !Array.isArray(data) ? data : null;
+  const status = result?.status;
+  const checkinId = result?.checkin_id;
+  if ((status !== "created" && status !== "updated") || typeof checkinId !== "string") {
     return databaseFailure("Today's check-in could not be saved. Refresh and try again.");
   }
 
   revalidatePath("/app");
   revalidatePath("/history");
-  return { kind: "success", message: status === "updated" ? "Today's check-in updated." : "Today's check-in saved." };
+  return {
+    kind: "success",
+    message: status === "updated" ? "Today's check-in updated." : "Today's check-in saved.",
+    checkinId,
+    checkinCreated: status === "created",
+  };
+}
+
+export async function undoCheckinAction(_previous: ActionState, formData: FormData): Promise<ActionState> {
+  const parsed = undoCheckinSchema.safeParse({ checkinId: readField(formData, "checkinId") });
+  if (!parsed.success) return databaseFailure("This check-in can no longer be undone.");
+
+  const { supabase } = await authenticatedClient();
+  const { data, error } = await supabase.rpc("undo_checkin", { p_checkin_id: parsed.data.checkinId });
+  if (error) return databaseFailure("This check-in could not be undone.", error);
+  if (!data) return databaseFailure("The six-second undo window has expired or this check-in was edited.");
+
+  revalidatePath("/app");
+  revalidatePath("/history");
+  return { kind: "success", message: "Check-in undone." };
 }
 
 export async function createGoalAction(
@@ -524,6 +545,26 @@ export async function createTaskAction(
   revalidatePath("/app");
   revalidatePath("/tasks");
   return { kind: "success", message: "Task created." };
+}
+
+export async function reorderTaskAction(_previous: ActionState, formData: FormData): Promise<ActionState> {
+  const parsed = reorderTaskSchema.safeParse({
+    taskId: readField(formData, "taskId"),
+    beforeTaskId: readField(formData, "beforeTaskId"),
+  });
+  if (!parsed.success) return validationFailure("Choose a valid task position.", parsed.error.issues);
+
+  const { supabase } = await authenticatedClient();
+  const { data, error } = await supabase.rpc("reorder_task", {
+    p_task_id: parsed.data.taskId,
+    p_before_task_id: parsed.data.beforeTaskId,
+  });
+  if (error) return databaseFailure("The task could not be moved.", error);
+  if (!data) return databaseFailure("The task could not be moved.");
+
+  revalidatePath("/app");
+  revalidatePath("/tasks");
+  return { kind: "success", message: "Task order saved." };
 }
 
 export async function updateTaskAction(

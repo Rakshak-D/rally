@@ -11,7 +11,7 @@ export default defineConfig({
   timeout: 180_000,
   expect: { timeout: 12_000 },
   reporter: "list",
-  outputDir: "output/playwright/test-results",
+  outputDir: "output/playwright/redesign-test-results",
   use: {
     ...devices["Desktop Chrome"],
     baseURL,

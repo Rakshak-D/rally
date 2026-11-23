@@ -149,14 +149,14 @@ isOneToOne: false
                   ]
                 },"tasks": {
                   Row: {
-                    "assignee_id": string | null,"challenge_id": string,"created_at": string,"deleted_at": string | null,"description": string,"due_date": string | null,"id": string,"owner_id": string,"status": Database["public"]['Enums']["task_status"],"title": string,"updated_at": string,"workspace_id": string
+                    "assignee_id": string | null,"challenge_id": string,"created_at": string,"deleted_at": string | null,"description": string,"due_date": string | null,"id": string,"owner_id": string,"sort_order": number,"status": Database["public"]['Enums']["task_status"],"title": string,"updated_at": string,"workspace_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "assignee_id"?: string | null,"challenge_id": string,"created_at"?: string,"deleted_at"?: string | null,"description"?: string,"due_date"?: string | null,"id"?: string,"owner_id"?: string,"status"?: Database["public"]['Enums']["task_status"],"title": string,"updated_at"?: string,"workspace_id": string
+                    "assignee_id"?: string | null,"challenge_id": string,"created_at"?: string,"deleted_at"?: string | null,"description"?: string,"due_date"?: string | null,"id"?: string,"owner_id"?: string,"sort_order"?: number,"status"?: Database["public"]['Enums']["task_status"],"title": string,"updated_at"?: string,"workspace_id": string
                   }
                   Update: {
-                    "assignee_id"?: string | null,"challenge_id"?: string,"created_at"?: string,"deleted_at"?: string | null,"description"?: string,"due_date"?: string | null,"id"?: string,"owner_id"?: string,"status"?: Database["public"]['Enums']["task_status"],"title"?: string,"updated_at"?: string,"workspace_id"?: string
+                    "assignee_id"?: string | null,"challenge_id"?: string,"created_at"?: string,"deleted_at"?: string | null,"description"?: string,"due_date"?: string | null,"id"?: string,"owner_id"?: string,"sort_order"?: number,"status"?: Database["public"]['Enums']["task_status"],"title"?: string,"updated_at"?: string,"workspace_id"?: string
                   }
                   Relationships: [
                     {
@@ -340,6 +340,12 @@ isOneToOne: false
                            },
 "save_checkin":
 { Args: { "p_accomplishment": string,"p_challenge_id": string,"p_next_plan": string,"p_notes"?: string }; Returns: Json
+                           },
+"undo_checkin":
+{ Args: { "p_checkin_id": string }; Returns: boolean
+                           },
+"reorder_task":
+{ Args: { "p_before_task_id"?: string | null,"p_task_id": string }; Returns: boolean
                            },
 "transfer_workspace_ownership":
 { Args: { "p_new_owner_id": string,"p_workspace_id": string }; Returns: undefined

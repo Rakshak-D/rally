@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTransition, type ReactNode } from "react";
 
 import { Logo } from "@/components/brand/logo";
+import { CommandPalette } from "@/components/app/command-palette";
 import { ProfileMenu } from "@/components/app/profile-menu";
 import { WorkspaceSwitcher } from "@/components/app/workspace-switcher";
 import { Icon, type IconName } from "@/components/ui/icons";
@@ -64,6 +65,7 @@ export function AppShell({
           <span className="sidebar-label">Workspace</span>
           <WorkspaceSwitcher workspaces={workspaces} selectedWorkspace={selectedWorkspace} onSwitch={switchWorkspace} />
         </div>
+        <CommandPalette workspaceId={selectedWorkspace?.id ?? null} />
 
         <nav className="side-nav" aria-label="Main navigation">
           {primaryNavigation.map((item) => {
@@ -101,7 +103,7 @@ export function AppShell({
           {children}
         </main>
         <nav className="mobile-nav" aria-label="Main navigation" style={{ "--nav-index": Math.max(0, activeIndex) } as React.CSSProperties}>
-          <span className="mobile-nav-indicator" aria-hidden="true" />
+          {activeIndex >= 0 && <span className="mobile-nav-indicator" aria-hidden="true" />}
           {primaryNavigation.map((item) => {
             const active = isActive(item.href, pathname);
             return (

@@ -25,7 +25,7 @@ export function InviteLinkEntry() {
       <label className="field-label" htmlFor="invite-link">Invitation link<input className="field-input" id="invite-link" name="inviteLink" type="text" autoComplete="url" maxLength={2048} placeholder="Paste the link shared with you" aria-invalid={error ? "true" : undefined} aria-describedby={error ? "invite-link-error" : "invite-link-hint"} required /></label>
       <span className="field-hint" id="invite-link-hint">Rally won’t show workspace details until you accept the invitation.</span>
       {error && <p className="form-message form-message--error" id="invite-link-error" role="alert">{error}</p>}
-      <button className="button button--primary" type="submit">Continue <span aria-hidden="true">→</span></button>
+      <button className="button button--primary" type="submit">Continue</button>
     </form>
   );
 }

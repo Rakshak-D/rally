@@ -48,6 +48,8 @@ export const checkinSchema = z.object({
   notes: z.string().trim().max(1200).default(""),
 });
 
+export const undoCheckinSchema = z.object({ checkinId: z.uuid() });
+
 const goalFields = {
   title: z.string().trim().min(1).max(100),
   description: z.string().trim().max(1200).default(""),
@@ -91,6 +93,11 @@ export const updateTaskSchema = z.object({
   dueDate: optionalDateSchema,
   status: z.enum(["todo", "in_progress", "completed"]),
   assigneeId: assigneeIdSchema,
+});
+
+export const reorderTaskSchema = z.object({
+  taskId: z.uuid(),
+  beforeTaskId: z.preprocess((value) => value === "" || value === undefined ? null : value, z.uuid().nullable()),
 });
 
 export const assignedTaskStatusSchema = z.object({

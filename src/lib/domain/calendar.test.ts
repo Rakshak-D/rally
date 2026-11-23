@@ -20,6 +20,12 @@ describe("challenge calendar", () => {
     expect(calendar.addCalendarDays("2026-02-30", 1)).toBeNull();
   });
 
+  it("formats local date values as compact editorial labels", () => {
+    expect(calendar.formatCalendarDate("2026-11-23")).toBe("Mon 23 Nov");
+    expect(calendar.formatCalendarDate("2027-01-01")).toBe("Fri 1 Jan");
+    expect(() => calendar.formatCalendarDate("2026-02-30")).toThrow(RangeError);
+  });
+
   it("rejects impossible date strings instead of manufacturing a challenge day", () => {
     expect(calendar.inclusiveChallengeDay("2026-02-30", "2026-03-02", "2026-03-01")).toBeNull();
   });

@@ -136,14 +136,16 @@ async function switchWorkspace(page: Page, workspaceName: string): Promise<void>
 }
 
 async function chooseTheme(page: Page, theme: "Light" | "Dark" | "System"): Promise<void> {
-  await page.getByRole("button", { name: /Rally Owner/ }).click();
+  const trigger = page.locator(".profile-menu:visible").getByRole("button");
+  await expect(trigger).toHaveAccessibleName(/Rally Owner/);
+  await trigger.click();
   await page.getByRole("menuitemradio", { name: theme, exact: true }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme-preference", theme.toLowerCase());
   if (theme !== "System") await expect(page.locator("html")).toHaveAttribute("data-theme", theme.toLowerCase());
 }
 
 test("members can build, share, and protect real progress", async ({ browser }) => {
-  test.setTimeout(240_000);
+  test.setTimeout(420_000);
   const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   const ownerEmail = `owner-${suffix}@rally.test`;
   const memberEmail = `member-${suffix}@rally.test`;
@@ -151,6 +153,7 @@ test("members can build, share, and protect real progress", async ({ browser }) 
   const workspaceName = "Sunday Practice";
   const challengeName = "Show up daily";
   const firstTaskTitle = "Plan a focused session";
+  const secondTaskTitle = "Prepare the next session";
   const updatedTaskTitle = "Book a quiet room";
   const initialGoalTitle = "Move each morning";
   const updatedGoalTitle = "Practice together";
@@ -182,7 +185,7 @@ test("members can build, share, and protect real progress", async ({ browser }) 
   await expect(owner.getByRole("menuitem", { name: "Sign out" })).toBeFocused();
   await owner.keyboard.press("Escape");
   await expect(profileMenuButton).toBeFocused();
-  await expect(owner.getByRole("heading", { name: /Start showing up together, Rally/ })).toBeVisible();
+  await expect(owner.getByRole("heading", { name: "Start with a shared challenge" })).toBeVisible();
   await owner.getByLabel("Workspace name").fill(workspaceName);
   await owner.getByLabel("Timezone").selectOption("UTC");
   await owner.getByRole("button", { name: "Create workspace" }).click();
@@ -197,20 +200,44 @@ test("members can build, share, and protect real progress", async ({ browser }) 
   expect((endOrdinal - startOrdinal) / 86_400_000 + 1).toBe(60);
 
   await owner.getByRole("button", { name: "Start challenge" }).click();
-  await expect(owner.getByRole("heading", { name: /Good (morning|afternoon|evening), Rally/ })).toBeVisible();
+  await expect(owner.getByRole("heading", { name: challengeName })).toBeVisible();
   await expect(owner.getByRole("link", { name: "Invite people" })).toHaveAttribute("href", /\/settings\?workspace=[a-f0-9-]{36}&tab=people#invites-heading/);
   await expect(owner.getByText(challengeName)).toBeVisible();
+  const screenshots = path.resolve(process.cwd(), "output/playwright/final-review-2026-11-24");
+  await mkdir(screenshots, { recursive: true });
+  await owner.locator(".stamp-lanes-desktop").screenshot({ path: path.join(screenshots, "rally-stamp-empty.png") });
   await owner.getByRole("button", { name: "Add a note or blocker" }).click();
   await owner.getByLabel("Note for the group").fill("Need a quieter room.");
   await owner.getByRole("button", { name: "Blocker" }).click();
-  await owner.getByLabel("What did you move forward today?").fill("Finished the first focused session.");
+  const newCheckinInput = owner.getByLabel("What did you move forward today?");
+  await newCheckinInput.focus();
+  await owner.keyboard.press("g");
+  await owner.keyboard.press("h");
+  await expect(owner).toHaveURL(/\/app\?workspace=[a-f0-9-]{36}$/i);
+  await newCheckinInput.fill("Finished the first focused session.");
   await owner.getByLabel("What's next?").fill("Set up tomorrow's session.");
   await owner.getByRole("button", { name: "Save check-in" }).click();
   await expect(owner.getByRole("status")).toContainText("Today's check-in saved.");
   await expect(owner.getByText("Done for today")).toBeVisible();
   await expect(owner.locator(".checkin-done-summary .note-callout-text")).toHaveText("Need a quieter room.");
   await expect(owner.locator(".checkin-done-summary .note-callout-label")).toHaveText("Blocker");
+  await owner.getByRole("button", { name: "Undo", exact: true }).click();
+  await expect(owner.locator(".toast-card")).toContainText("Check-in undone.");
+  await expect(owner.getByText("Done for today")).toHaveCount(0);
+  await expect(owner.locator(".today-run-mark strong")).toHaveText("0");
+  await owner.locator(".stamp-lanes-desktop").screenshot({ path: path.join(screenshots, "rally-stamp-undone.png") });
+  await owner.getByRole("button", { name: "Add a note or blocker" }).click();
+  await owner.getByLabel("Note for the group").fill("Need a quieter room.");
+  await owner.getByRole("button", { name: "Blocker" }).click();
+  await newCheckinInput.fill("Finished the first focused session.");
+  await owner.getByLabel("What's next?").fill("Set up tomorrow's session.");
+  await owner.getByRole("button", { name: "Save check-in" }).click();
+  await expect(owner.getByRole("status")).toContainText("Today's check-in saved.");
+  await expect(owner.getByText("Done for today")).toBeVisible();
+  await owner.locator(".stamp-lanes-desktop").screenshot({ path: path.join(screenshots, "rally-stamp-checked-in.png") });
+  await expect(owner.getByRole("button", { name: "Undo", exact: true })).toBeVisible();
   await owner.getByRole("button", { name: "Edit" }).click();
+  await expect(owner.getByRole("button", { name: "Undo", exact: true })).toHaveCount(0);
   await owner.getByLabel("Note for the group").fill("");
   await owner.getByRole("button", { name: "Blocker" }).click();
   const submittedNotes = await owner.locator(".checkin-form").evaluate((form) => new FormData(form as HTMLFormElement).get("notes"));
@@ -222,7 +249,7 @@ test("members can build, share, and protect real progress", async ({ browser }) 
   expect(appActionNotes.at(-1)).toBe(0);
   await owner.reload();
   await expect(owner.getByText("Done for today")).toBeVisible();
-  await expect(owner.locator(".streak-ring-core > strong")).toHaveText("1");
+  await expect(owner.locator(".today-run-mark strong")).toHaveText("1");
 
   const workspaceId = new URL(owner.url()).searchParams.get("workspace");
   expect(workspaceId).toMatch(/^[0-9a-f-]{36}$/i);
@@ -270,6 +297,36 @@ test("members can build, share, and protect real progress", async ({ browser }) 
   expect(labelControlsMatch).toBe(true);
   await owner.goto(`/app?workspace=${workspaceId}`);
 
+  await owner.keyboard.press("Control+k");
+  const commandDialog = owner.getByRole("dialog", { name: "Rally commands" });
+  await expect(commandDialog).toBeVisible();
+  await expect(commandDialog.getByRole("menuitem", { name: "New goal" })).toBeVisible();
+  await owner.keyboard.press("Escape");
+  await expect(commandDialog).toBeHidden();
+
+  await owner.keyboard.press("g");
+  await owner.keyboard.press("h");
+  await expect(owner).toHaveURL(new RegExp(`/history\\?workspace=${workspaceId}$`));
+  await owner.goto(`/app?workspace=${workspaceId}`);
+  const desktopLane = owner.locator(".stamp-lanes-desktop");
+  const desktopFirstStamp = desktopLane.locator(".stamp-lane-cell").first();
+  await expect(desktopFirstStamp).toHaveAttribute("aria-label", /challenge day 1/);
+  await desktopFirstStamp.focus();
+  await owner.keyboard.press("ArrowRight");
+  await expect(desktopLane.locator('[data-cell-index="1"]')).toBeFocused();
+
+  await owner.setViewportSize({ width: 375, height: 844 });
+  const mobileLane = owner.locator(".stamp-lanes-mobile");
+  await expect(mobileLane.locator(".stamp-lanes-mobile-row")).toHaveCount(8);
+  const firstMobileDay = mobileLane.locator(".stamp-lanes-mobile-row").nth(1);
+  const nextMobileDay = mobileLane.locator(".stamp-lanes-mobile-row").nth(2);
+  const firstMobileStamp = firstMobileDay.locator(".stamp-lane-cell").first();
+  await expect(firstMobileStamp).toBeVisible();
+  await firstMobileStamp.focus();
+  await owner.keyboard.press("ArrowDown");
+  await expect(nextMobileDay.locator(".stamp-lane-cell").first()).toBeFocused();
+  await owner.setViewportSize({ width: 1440, height: 1100 });
+
   await owner.goto("/tasks");
   const initialTaskForm = await openCreateRecord(owner, "New task");
   await initialTaskForm.getByRole("button", { name: "Add task" }).click();
@@ -278,6 +335,15 @@ test("members can build, share, and protect real progress", async ({ browser }) 
   await owner.getByRole("button", { name: "Add task" }).click();
   const taskCard = owner.locator("li.record-card").filter({ hasText: firstTaskTitle });
   await expect(taskCard).toBeVisible({ timeout: 30_000 });
+  const secondTaskForm = await openCreateRecord(owner, "New task");
+  await secondTaskForm.getByLabel("Task title").fill(secondTaskTitle);
+  await owner.getByRole("button", { name: "Add task" }).click();
+  const taskOrder = owner.locator(".task-card h2");
+  await expect(taskOrder).toHaveText([firstTaskTitle, secondTaskTitle]);
+  await taskCard.getByRole("button", { name: "Move down" }).click();
+  await expect(taskOrder).toHaveText([secondTaskTitle, firstTaskTitle]);
+  await owner.reload();
+  await expect(taskOrder).toHaveText([secondTaskTitle, firstTaskTitle]);
   await openRecordEditor(taskCard);
   await taskCard.locator('input[name="title"]').fill(updatedTaskTitle);
   await taskCard.getByRole("button", { name: "Save changes" }).click();
@@ -326,13 +392,14 @@ test("members can build, share, and protect real progress", async ({ browser }) 
   await createConfirmedAccount(member, memberEmail, "Rally Member", new URL(inviteLink).pathname);
   await expect(member.getByRole("button", { name: "Accept invitation" })).toBeVisible();
   await member.getByRole("button", { name: "Accept invitation" }).click();
-  await expect(member.getByRole("heading", { name: /Good (morning|afternoon|evening), Rally/ })).toBeVisible();
+  await expect(member.getByRole("heading", { name: challengeName })).toBeVisible();
   await expect(member.getByRole("link", { name: "Invite people" })).toHaveCount(0);
   const longBlockerNote = "The shared room was unavailable, so I moved the practice outside and will book a backup space before tomorrow. ".repeat(2);
   await member.getByRole("button", { name: "Add a note or blocker" }).click();
   await member.getByLabel("Note for the group").fill(longBlockerNote);
   await member.getByRole("button", { name: "Blocker" }).click();
-  await member.getByLabel("What did you move forward today?").fill("Shared the first update with the group.");
+  const longAccomplishment = "Shared the first update with the group, then wrote down the changes so teammates could pick up the plan without waiting for another meeting. ".repeat(3);
+  await member.getByLabel("What did you move forward today?").fill(longAccomplishment);
   await member.getByLabel("What's next?").fill("Keep the daily rhythm.");
   await member.getByRole("button", { name: "Save check-in" }).click();
   await expect(member.getByText("Done for today")).toBeVisible();
@@ -421,14 +488,36 @@ test("members can build, share, and protect real progress", async ({ browser }) 
   await expect(owner.getByText("Checked in").first()).toBeVisible();
   await owner.goto("/history");
   await expect(owner.getByText("Finished the first focused session.")).toBeVisible();
-  await expect(owner.getByText("Shared the first update with the group.")).toBeVisible();
-  const historyNote = owner.locator(".history-record").filter({ hasText: "Shared the first update with the group." }).locator(".note-callout");
+  await expect(owner.getByText("Shared the first update with the group", { exact: false })).toBeVisible();
+  await owner.setViewportSize({ width: 375, height: 844 });
+  const historyLanes = owner.locator(".history-lanes-panel .stamp-lanes");
+  const historyLaneRows = historyLanes.locator(".stamp-lanes-mobile-row");
+  await expect(historyLaneRows).toHaveCount(15);
+  await expect(historyLanes.getByRole("button", { name: "Previous 14 days" })).toBeDisabled();
+  await historyLanes.getByRole("button", { name: "Next 14 days" }).click();
+  await expect(historyLanes.locator(".stamp-window-range")).toHaveText("Days 15–28 of 60");
+  await historyLanes.getByRole("button", { name: "Show all 60 days" }).click();
+  await expect(historyLaneRows).toHaveCount(61);
+  await historyLanes.getByRole("button", { name: "Show 14-day view" }).click();
+  await expect(historyLaneRows).toHaveCount(15);
+  await expect(historyLanes.locator(".stamp-window-range")).toHaveText("Days 15–28 of 60");
+  await owner.locator(".mobile-nav").getByRole("link", { name: "History" }).click();
+  await expect(owner).toHaveURL(/\/history\?/);
+  await expect(historyLaneRows).toHaveCount(15);
+  await owner.evaluate(() => window.scrollTo(0, Math.min(600, document.documentElement.scrollHeight)));
+  const historyScrollPosition = await owner.evaluate(() => window.scrollY);
+  expect(historyScrollPosition).toBeGreaterThan(0);
+  await owner.locator(".mobile-nav").getByRole("link", { name: "Tasks" }).click();
+  await expect(owner).toHaveURL(/\/tasks\?/);
+  await owner.goBack();
+  await expect(owner.locator(".history-page")).toBeVisible();
+  await expect.poll(() => owner.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+  await owner.setViewportSize({ width: 1440, height: 1100 });
+  const historyNote = owner.locator(".history-record").filter({ hasText: "Shared the first update with the group" }).locator(".note-callout");
   await expect(historyNote.getByText("Blocker", { exact: true })).toBeVisible();
   await historyNote.getByRole("button", { name: "Show more" }).click();
   await expect(historyNote.getByRole("button", { name: "Show less" })).toBeVisible();
 
-  const screenshots = path.resolve(process.cwd(), "output/playwright");
-  await mkdir(screenshots, { recursive: true });
   await owner.goto("/app");
   await owner.setViewportSize({ width: 1440, height: 1100 });
   await owner.screenshot({ path: path.join(screenshots, "rally-dashboard-desktop.png"), fullPage: true });
@@ -460,7 +549,7 @@ test("members can build, share, and protect real progress", async ({ browser }) 
         );
         expect(documentWidth, `${route.href} overflows at ${width}px`).toBeLessThanOrEqual(width);
 
-        if (width === 375 || width === 1440) {
+        if (width === 375 || width === 768 || width === 1440) {
           await owner.waitForTimeout(800);
           await owner.screenshot({
             path: path.join(screenshots, `rally-${route.name}-${width}-${theme.toLowerCase()}.png`),
@@ -484,8 +573,8 @@ test("members can build, share, and protect real progress", async ({ browser }) 
   }
   await owner.emulateMedia({ reducedMotion: "reduce" });
   await owner.goto(`/app?workspace=${workspaceId}`);
-  const reducedMotionDuration = await owner.locator(".streak-ring-progress").evaluate((element) => getComputedStyle(element).animationDuration);
-  expect(parseFloat(reducedMotionDuration), "reduced motion keeps the streak ring static").toBeLessThan(0.001);
+  const reducedMotionAnimation = await owner.locator(".stamp-lanes-desktop .stamp-lane-cell").first().evaluate((element) => getComputedStyle(element).animationName);
+  expect(reducedMotionAnimation, "reduced motion keeps lane stamps static").toBe("none");
   await owner.emulateMedia({ reducedMotion: "no-preference" });
   await chooseTheme(owner, "System");
   await owner.setViewportSize({ width: 390, height: 844 });
@@ -536,15 +625,14 @@ test("members can build, share, and protect real progress", async ({ browser }) 
   await expect(owner.getByRole("heading", { name: "Tasks" })).toBeVisible();
 
   await owner.goto(`/history?workspace=${workspaceId}`);
-  const memberFilter = owner.getByLabel("Member");
-  const challengeFilter = owner.locator('.history-filters select[name="challenge"]');
-  const memberFilterId = await memberFilter.locator("option").nth(1).getAttribute("value");
-  const challengeFilterId = await challengeFilter.locator("option").nth(1).getAttribute("value");
+  const memberFilter = owner.locator("#history-member");
+  await expect(memberFilter).toBeVisible();
+  const memberFilterId = await memberFilter.selectOption({ label: "Rally Member" });
   expect(memberFilterId).toBeTruthy();
-  expect(challengeFilterId).toBeTruthy();
-  await memberFilter.selectOption(memberFilterId!);
   await expect(owner).toHaveURL(new RegExp(`member=${memberFilterId}`));
-  await owner.locator('.history-filters select[name="challenge"]').selectOption(challengeFilterId!);
+
+  const challengeFilterId = await owner.locator('.history-filters select[name="challenge"]').selectOption({ label: "Show up daily · active" });
+  expect(challengeFilterId).toBeTruthy();
   await expect(owner).toHaveURL(new RegExp(`challenge=${challengeFilterId}`));
   await owner.goto(`/history?workspace=${workspaceId}&member=${memberFilterId}&challenge=${challengeFilterId}&page=2&view=compact`);
   await switchWorkspace(owner, "Second Space");
@@ -588,6 +676,26 @@ test("members can build, share, and protect real progress", async ({ browser }) 
   await expect(member.getByRole("button", { name: "Create invite link" })).toBeVisible();
   await member.goto(`/settings?workspace=${workspaceId}&tab=workspace`);
   await expect(member.locator(".role-chip", { hasText: "owner" })).toBeVisible();
+
+  await member.goto(`/settings?workspace=${workspaceId}&tab=people`);
+  await member.getByRole("button", { name: "Create invite link" }).click();
+  const thirdMemberInvite = await member.locator("#created-invite-link").inputValue();
+  await replay.goto(thirdMemberInvite);
+  await replay.getByRole("button", { name: "Accept invitation" }).click();
+  await expect(replay).toHaveURL(new RegExp(`/app\\?workspace=${workspaceId}$`));
+  await replay.goto(`/settings?workspace=${workspaceId}&tab=profile`);
+  const longMemberName = "Alexandra Montgomery";
+  await replay.getByLabel("Display name").fill(longMemberName);
+  await replay.getByRole("button", { name: "Save profile" }).click();
+  await expect(replay.locator(".toast-card")).toContainText("Profile saved.");
+  await replay.setViewportSize({ width: 375, height: 844 });
+  await replay.goto(`/app?workspace=${workspaceId}`);
+  await expect(replay.getByText("3 members", { exact: true })).toBeVisible();
+  const longNameHeader = replay.locator(".stamp-lanes-mobile-row--head .stamp-member-heading").filter({ hasText: longMemberName });
+  await expect(longNameHeader).toBeVisible();
+  await expect(longNameHeader.locator("span:not(.member-avatar)")).toHaveText(longMemberName);
+  await replay.screenshot({ path: path.join(screenshots, "rally-today-three-members-mobile.png"), fullPage: true });
+  await expect(replay.locator("body")).toHaveJSProperty("scrollWidth", 375);
 
   expect(hydrationWarnings).toEqual([]);
   expect(consoleErrors).toEqual([]);
