@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 
+import { Icon } from "@/components/ui/icons";
 import { createWorkspaceAction } from "@/lib/workspace/actions";
 import { initialActionState } from "@/lib/forms/state";
 
@@ -49,7 +50,7 @@ export function CreateWorkspaceForm() {
       {state.kind === "error" && <p className="form-message form-message--error" role="alert">{state.message}</p>}
       <button className="button button--primary" type="submit" disabled={pending}>
         {pending ? "Creating…" : "Create workspace"}
-        <span aria-hidden="true">↗</span>
+        <Icon name="arrow" size={18} />
       </button>
     </form>
   );

@@ -11,11 +11,11 @@ export default async function ProtectedLayout({ children }: { children: ReactNod
     getWorkspaceOptions(user.id),
     createSupabaseServerClient(),
   ]);
-  const { data: profile } = await supabase.from("profiles").select("display_name").eq("id", user.id).maybeSingle();
+  const { data: profile } = await supabase.from("profiles").select("display_name, avatar_path").eq("id", user.id).maybeSingle();
   const displayName = profile?.display_name || user.email?.split("@")[0] || "Rally member";
 
   return (
-    <AppShell workspaces={workspaces} displayName={displayName} email={user.email ?? ""}>
+    <AppShell workspaces={workspaces} userId={user.id} avatarPath={profile?.avatar_path ?? null} displayName={displayName} email={user.email ?? ""}>
       {children}
     </AppShell>
   );

@@ -5,25 +5,31 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTransition, type ReactNode } from "react";
 
 import { Logo } from "@/components/brand/logo";
-import { signOutAction } from "@/lib/auth/actions";
+import { ProfileMenu } from "@/components/app/profile-menu";
+import { WorkspaceSwitcher } from "@/components/app/workspace-switcher";
+import { Icon, type IconName } from "@/components/ui/icons";
+import { ToastViewport } from "@/components/ui/toast";
 import type { WorkspaceOption } from "@/lib/data/dashboard";
 
-const navigation = [
-  { href: "/app", label: "Today", code: "01" },
-  { href: "/history", label: "History", code: "02" },
-  { href: "/goals", label: "Goals", code: "03" },
-  { href: "/tasks", label: "Tasks", code: "04" },
-  { href: "/settings", label: "Settings", code: "05" },
+const primaryNavigation: { href: string; label: string; icon: IconName }[] = [
+  { href: "/app", label: "Today", icon: "today" },
+  { href: "/history", label: "History", icon: "history" },
+  { href: "/goals", label: "Goals", icon: "target" },
+  { href: "/tasks", label: "Tasks", icon: "tasks" },
 ];
 
 export function AppShell({
   children,
   workspaces,
+  userId,
+  avatarPath,
   displayName,
   email,
 }: {
   children: ReactNode;
   workspaces: WorkspaceOption[];
+  userId: string;
+  avatarPath: string | null;
   displayName: string;
   email: string;
 }) {
@@ -41,89 +47,77 @@ export function AppShell({
 
   function switchWorkspace(workspaceId: string) {
     if (!workspaces.some((workspace) => workspace.id === workspaceId)) return;
-
-    const destination = navigation.some((item) => item.href === pathname) ? pathname : "/app";
     const query = new URLSearchParams(searchParams.toString());
     for (const key of ["workspace", "member", "challenge", "page"]) query.delete(key);
     query.set("workspace", workspaceId);
-    startTransition(() => router.push(`${destination}?${query.toString()}`, { scroll: false }));
+    const queryString = query.toString();
+    startTransition(() => router.push(`${pathname}${queryString ? `?${queryString}` : ""}`, { scroll: false }));
   }
+
+  const activeIndex = primaryNavigation.findIndex((item) => isActive(item.href, pathname));
 
   return (
     <div className="app-frame">
-      <aside className="app-sidebar">
+      <aside className="app-sidebar" aria-label="Rally workspace">
         <div className="sidebar-brand"><Logo href={hrefFor("/app")} /></div>
         <div className="sidebar-workspace">
-          <label className="sidebar-label" htmlFor="workspace-switcher">WORKSPACE</label>
-          {workspaces.length > 0 ? (
-            <select
-              id="workspace-switcher"
-              className="workspace-select"
-              aria-label="Switch workspace"
-              value={selectedWorkspace?.id ?? ""}
-              onChange={(event) => switchWorkspace(event.target.value)}
-            >
-              {workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}
-            </select>
-          ) : (
-            <span className="workspace-select workspace-select--empty">No workspace yet</span>
-          )}
+          <span className="sidebar-label">Workspace</span>
+          <WorkspaceSwitcher workspaces={workspaces} selectedWorkspace={selectedWorkspace} onSwitch={switchWorkspace} />
         </div>
 
         <nav className="side-nav" aria-label="Main navigation">
-          {navigation.map((item) => {
-            const active = item.href === "/app" ? pathname === "/app" : pathname.startsWith(item.href);
+          {primaryNavigation.map((item) => {
+            const active = isActive(item.href, pathname);
             return (
               <Link className={`side-nav-link${active ? " is-active" : ""}`} href={hrefFor(item.href)} key={item.href} aria-current={active ? "page" : undefined}>
-                <span className="side-nav-code">{item.code}</span>
+                <Icon name={item.icon} size={20} />
                 <span>{item.label}</span>
-                {active && <span className="side-nav-marker" aria-hidden="true" />}
               </Link>
             );
           })}
+          <Link className={`side-nav-link side-nav-link--quiet${isActive("/settings", pathname) ? " is-active" : ""}`} href={hrefFor("/settings")} aria-current={isActive("/settings", pathname) ? "page" : undefined}>
+            <Icon name="settings" size={20} />
+            <span>Settings</span>
+          </Link>
         </nav>
 
         <div className="sidebar-bottom">
-          <div className="sidebar-user">
-            <span className="member-avatar member-avatar--small" aria-hidden="true">{initials(displayName)}</span>
-            <span className="sidebar-user-copy"><strong>{displayName}</strong><span>{email}</span></span>
-          </div>
-          <form action={signOutAction}>
-            <button className="sign-out-button" type="submit">Sign out <span aria-hidden="true">↗</span></button>
-          </form>
+          <ProfileMenu displayName={displayName} email={email} userId={userId} avatarPath={avatarPath} />
         </div>
       </aside>
 
       <div className="app-main-column">
         <header className="mobile-topbar">
           <Logo href={hrefFor("/app")} />
-          {workspaces.length > 0 && (
-            <select
-              className="workspace-select workspace-select--mobile"
-              aria-label="Switch workspace"
-              value={selectedWorkspace?.id ?? ""}
-              onChange={(event) => switchWorkspace(event.target.value)}
-            >
-              {workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}
-            </select>
-          )}
+          <div className="mobile-topbar-actions">
+            <WorkspaceSwitcher workspaces={workspaces} selectedWorkspace={selectedWorkspace} onSwitch={switchWorkspace} compact />
+            <ProfileMenu displayName={displayName} email={email} userId={userId} avatarPath={avatarPath} compact />
+          </div>
         </header>
+        <div className={`route-progress${isPending ? " is-pending" : ""}`} aria-hidden={!isPending}>
+          {isPending && <span className="visually-hidden" role="status" aria-live="polite">Changing workspace</span>}
+        </div>
         <main className="app-main" id="main-content" tabIndex={-1}>
-          {isPending && <p className="route-pending" role="status">Changing workspace…</p>}
           {children}
         </main>
-        <nav className="mobile-nav" aria-label="Main navigation">
-          {navigation.map((item) => {
-            const active = item.href === "/app" ? pathname === "/app" : pathname.startsWith(item.href);
-            return <Link href={hrefFor(item.href)} key={item.href} aria-current={active ? "page" : undefined} className={active ? "is-active" : ""}>{item.label}</Link>;
+        <nav className="mobile-nav" aria-label="Main navigation" style={{ "--nav-index": Math.max(0, activeIndex) } as React.CSSProperties}>
+          <span className="mobile-nav-indicator" aria-hidden="true" />
+          {primaryNavigation.map((item) => {
+            const active = isActive(item.href, pathname);
+            return (
+              <Link href={hrefFor(item.href)} key={item.href} aria-current={active ? "page" : undefined} className={active ? "is-active" : ""}>
+                <Icon name={item.icon} size={20} />
+                <span>{item.label}</span>
+              </Link>
+            );
           })}
         </nav>
       </div>
+      <ToastViewport />
     </div>
   );
 }
 
-function initials(value: string): string {
-  const parts = value.trim().split(/\s+/).filter(Boolean);
-  return (parts.length > 1 ? `${parts[0][0]}${parts.at(-1)?.[0] ?? ""}` : value.slice(0, 2)).toUpperCase();
+function isActive(href: string, pathname: string): boolean {
+  return href === "/app" ? pathname === "/app" : pathname.startsWith(href);
 }
