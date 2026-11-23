@@ -24,7 +24,12 @@ export const inviteTokenSchema = z.string().regex(/^[a-f0-9]{64}$/i);
 
 export const updateProfileSchema = z.object({
   displayName: z.string().trim().min(1).max(80),
+  tagline: z.string().trim().max(80).default(""),
 });
+
+export const avatarPathSchema = z.string().regex(
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/avatar\.(?:webp|jpg)$/i,
+);
 
 export const updateWorkspaceSchema = z.object({
   workspaceId: z.uuid(),

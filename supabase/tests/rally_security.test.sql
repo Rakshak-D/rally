@@ -1,7 +1,7 @@
 begin;
 
 create extension if not exists pgtap with schema extensions;
-select plan(89);
+select plan(105);
 
 select has_table('public', 'profiles', 'profiles table exists');
 select has_table('public', 'workspaces', 'workspaces table exists');
@@ -12,6 +12,17 @@ select has_table('public', 'checkins', 'check-ins table exists');
 select has_table('public', 'goals', 'goals table exists');
 select has_table('public', 'tasks', 'tasks table exists');
 select has_table('public', 'goal_progress_history', 'goal progress history table exists');
+select has_column('public', 'profiles', 'avatar_path', 'profile avatar path is available');
+select has_column('public', 'profiles', 'tagline', 'profile tagline is available');
+select ok(exists (select 1 from pg_catalog.pg_policies where schemaname = 'storage' and tablename = 'objects' and policyname = 'Rally avatar owners can insert their own images'), 'avatar inserts are scoped to the user folder');
+select ok(exists (select 1 from pg_catalog.pg_policies where schemaname = 'storage' and tablename = 'objects' and policyname = 'Rally avatar owners can read their own image records'), 'avatar upserts can inspect only the user folder');
+select ok(exists (select 1 from pg_catalog.pg_policies where schemaname = 'storage' and tablename = 'objects' and policyname = 'Rally avatar owners can update their own images'), 'avatar updates are scoped to the user folder');
+select ok(exists (select 1 from pg_catalog.pg_policies where schemaname = 'storage' and tablename = 'objects' and policyname = 'Rally avatar owners can delete their own images'), 'avatar deletes are scoped to the user folder');
+select is((select file_size_limit::integer from storage.buckets where id = 'avatars'), 2097152, 'avatar bucket caps objects at 2 MB');
+select ok((select allowed_mime_types = array['image/png', 'image/jpeg', 'image/webp']::text[] from storage.buckets where id = 'avatars'), 'avatar bucket accepts only supported image types');
+select ok(has_column_privilege('authenticated', 'public.profiles', 'display_name', 'UPDATE'), 'authenticated users retain display name updates');
+select ok(has_column_privilege('authenticated', 'public.profiles', 'avatar_path', 'UPDATE'), 'authenticated users can update the avatar path column');
+select ok(has_column_privilege('authenticated', 'public.profiles', 'tagline', 'UPDATE'), 'authenticated users can update the tagline column');
 select ok(pg_catalog.to_regprocedure('public.transfer_workspace_ownership(uuid,uuid)') is not null, 'ownership transfer function exists');
 select ok(pg_catalog.to_regprocedure('public.update_assigned_task_status(uuid,public.task_status)') is not null, 'assigned task status function exists');
 select ok(not has_function_privilege('anon', 'public.transfer_workspace_ownership(uuid,uuid)', 'EXECUTE'), 'anonymous users cannot call ownership transfer');
@@ -266,6 +277,20 @@ select is(
 
 select set_config('request.jwt.claim.sub', '22222222-2222-2222-2222-222222222222', true);
 select throws_ok(
+  $$update public.profiles set tagline = repeat('x', 81) where id = '22222222-2222-2222-2222-222222222222'$$,
+  '23514', null, 'profile taglines are limited to 80 characters'
+);
+update public.profiles set avatar_path = '22222222-2222-2222-2222-222222222222/avatar.webp'
+where id = '11111111-1111-1111-1111-111111111111';
+select is((select avatar_path from public.profiles where id = '11111111-1111-1111-1111-111111111111'), null::text, 'members cannot change another users avatar path');
+select throws_ok(
+  $$insert into storage.objects (bucket_id, name, owner_id) values ('avatars', '11111111-1111-1111-1111-111111111111/avatar.webp', '22222222-2222-2222-2222-222222222222')$$,
+  '42501', null, 'members cannot write another users avatar object'
+);
+insert into storage.objects (bucket_id, name, owner_id)
+values ('avatars', '22222222-2222-2222-2222-222222222222/avatar.webp', '22222222-2222-2222-2222-222222222222');
+select is((select count(*)::integer from storage.objects where bucket_id = 'avatars' and name = '22222222-2222-2222-2222-222222222222/avatar.webp'), 1, 'members can create an avatar object in their own folder');
+select throws_ok(
   $$update public.checkins set accomplishment = 'Backdated edit' where id = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee'$$,
   '42501', null, 'historical check-ins cannot be edited'
 );
@@ -337,6 +362,7 @@ select throws_ok(
   '42501', null, 'outsiders cannot query challenge progress'
 );
 select is((select count(*)::integer from public.workspaces), 1, 'outsider sees only their own workspace');
+select is((select count(*)::integer from public.profiles), 1, 'outsiders cannot read profiles outside shared workspaces');
 select is((select count(*)::integer from public.checkins), 0, 'outsider cannot read another workspace check-ins');
 select throws_ok(
   $$insert into public.tasks (workspace_id, challenge_id, title) values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'cccccccc-cccc-cccc-cccc-cccccccccccc', 'IDOR task')$$,

@@ -9,7 +9,7 @@ import { safeDatabaseMessage, type DatabaseErrorLike } from "@/lib/data/database
 import type { ActionState } from "@/lib/forms/state";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { assignedTaskStatusSchema, checkinSchema, challengeSchema, goalSchema, taskSchema, updateChallengeSchema, updateGoalSchema, updateTaskSchema } from "@/lib/validation/product";
-import { createInviteSchema, createWorkspaceSchema, inviteTokenSchema, transferWorkspaceOwnershipSchema, updateProfileSchema, updateWorkspaceSchema } from "@/lib/validation/workspace";
+import { avatarPathSchema, createInviteSchema, createWorkspaceSchema, inviteTokenSchema, transferWorkspaceOwnershipSchema, updateProfileSchema, updateWorkspaceSchema } from "@/lib/validation/workspace";
 import { validationFailure } from "@/lib/forms/state";
 
 function readField(formData: FormData, name: string): string | undefined {
@@ -140,16 +140,76 @@ export async function updateProfileAction(
   _previous: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const parsed = updateProfileSchema.safeParse({ displayName: readField(formData, "displayName") });
+  const parsed = updateProfileSchema.safeParse({
+    displayName: readField(formData, "displayName"),
+    tagline: readField(formData, "tagline"),
+  });
   if (!parsed.success) return databaseFailure("Your name must be between 1 and 80 characters.");
 
   const { supabase, user } = await authenticatedClient();
-  const { data, error } = await supabase.from("profiles").update({ display_name: parsed.data.displayName }).eq("id", user.id).select("id").maybeSingle();
+  const { data, error } = await supabase.from("profiles").update({
+    display_name: parsed.data.displayName,
+    tagline: parsed.data.tagline,
+  }).eq("id", user.id).select("id").maybeSingle();
   if (error || !data) return databaseFailure("Your profile could not be updated.", error);
 
   revalidatePath("/app");
   revalidatePath("/settings");
+  revalidatePath("/profile");
   return { kind: "success", message: "Profile saved." };
+}
+
+export async function updateAvatarAction(path: string): Promise<ActionState> {
+  const parsed = avatarPathSchema.safeParse(path);
+  if (!parsed.success) return databaseFailure("Choose a valid profile photo.");
+
+  const { supabase, user } = await authenticatedClient();
+  const ownPathPrefix = `${user.id.toLowerCase()}/`;
+  if (!parsed.data.toLowerCase().startsWith(ownPathPrefix)) {
+    return databaseFailure("Choose a valid profile photo.");
+  }
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .update({ avatar_path: parsed.data })
+    .eq("id", user.id)
+    .select("id")
+    .maybeSingle();
+  if (error || !data) return databaseFailure("Your profile photo could not be saved.", error);
+
+  revalidatePath("/app");
+  revalidatePath("/profile");
+  revalidatePath("/settings");
+  return { kind: "success", message: "Profile photo updated." };
+}
+
+export async function removeAvatarAction(): Promise<ActionState> {
+  const { supabase, user } = await authenticatedClient();
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("avatar_path")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (profileError || !profile) return databaseFailure("Your profile photo could not be removed.", profileError);
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .update({ avatar_path: null })
+    .eq("id", user.id)
+    .select("id")
+    .maybeSingle();
+  if (error || !data) return databaseFailure("Your profile photo could not be removed.", error);
+
+  revalidatePath("/app");
+  revalidatePath("/profile");
+  revalidatePath("/settings");
+
+  const storedPath = avatarPathSchema.safeParse(profile.avatar_path);
+  if (storedPath.success && storedPath.data.toLowerCase().startsWith(`${user.id.toLowerCase()}/`)) {
+    const { error: storageError } = await supabase.storage.from("avatars").remove([storedPath.data]);
+    if (storageError) return { kind: "success", message: "Photo removed from your profile; its stored copy could not be cleared." };
+  }
+  return { kind: "success", message: "Profile photo removed." };
 }
 
 export async function updateWorkspaceAction(
