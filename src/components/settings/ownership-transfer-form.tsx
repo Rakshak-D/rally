@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 
+import { useActionToast } from "@/components/ui/toast";
 import { initialActionState } from "@/lib/forms/state";
 import { transferWorkspaceOwnershipAction } from "@/lib/workspace/actions";
 
@@ -15,6 +16,7 @@ export function OwnershipTransferForm({
   members: Array<{ id: string; display_name: string }>;
 }) {
   const [state, formAction, pending] = useActionState(transferWorkspaceOwnershipAction, initialActionState);
+  useActionToast(state);
   const candidates = members.filter((member) => member.id !== currentUserId);
   if (!candidates.length) return <p className="quiet-copy">Invite another member before handing over ownership.</p>;
 
@@ -34,7 +36,7 @@ export function OwnershipTransferForm({
         </select>
       </label>
       {state.fieldErrors?.newOwnerId && <span className="field-error">{state.fieldErrors.newOwnerId}</span>}
-      {state.message && <p className={`form-message form-message--${state.kind}`} role={state.kind === "error" ? "alert" : "status"}>{state.message}</p>}
+      {state.kind === "error" && state.message && <p className="form-message form-message--error" role="alert">{state.message}</p>}
       <p className="quiet-copy">You will keep your membership. Ownership can be transferred again later.</p>
       <button className="button button--secondary" type="submit" disabled={pending}>{pending ? "Transferring…" : "Transfer ownership"}</button>
     </form>

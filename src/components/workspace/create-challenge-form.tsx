@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 
+import { Icon } from "@/components/ui/icons";
 import { addCalendarDays } from "@/lib/domain/calendar";
 import { initialActionState } from "@/lib/forms/state";
 import { createChallengeAction } from "@/lib/workspace/actions";
@@ -18,7 +19,7 @@ export function CreateChallengeForm({ workspaceId, startDate }: { workspaceId: s
         <input className="field-input" id="challenge-title" name="title" type="text" maxLength={100} placeholder="Steady practice" required />
       </label>
       <label className="field-label" htmlFor="challenge-description">
-        Description <span className="field-optional">OPTIONAL</span>
+        Description <span className="field-optional">Optional</span>
         <textarea className="field-textarea" id="challenge-description" name="description" maxLength={1200} rows={3} placeholder="What are we showing up for?" />
       </label>
       <div className="date-fields">
@@ -35,7 +36,7 @@ export function CreateChallengeForm({ workspaceId, startDate }: { workspaceId: s
       {state.kind === "error" && <p className="form-message form-message--error" role="alert">{state.message}</p>}
       <button className="button button--primary" type="submit" disabled={pending}>
         {pending ? "Starting…" : "Start challenge"}
-        <span aria-hidden="true">↗</span>
+        <Icon name="arrow" size={18} />
       </button>
     </form>
   );

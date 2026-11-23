@@ -2,6 +2,7 @@
 
 import { useActionState, useRef, useState } from "react";
 
+import { useActionToast } from "@/components/ui/toast";
 import { createInviteAction, revokeInviteAction } from "@/lib/workspace/actions";
 import { initialActionState } from "@/lib/forms/state";
 import type { Tables } from "@/lib/supabase/database.types";
@@ -10,6 +11,7 @@ type Invite = Pick<Tables<"workspace_invites">, "id" | "expires_at" | "revoked_a
 
 export function CreateInviteForm({ workspaceId }: { workspaceId: string }) {
   const [state, formAction, pending] = useActionState(createInviteAction, initialActionState);
+  useActionToast(state);
 
   return (
     <form action={formAction} className="settings-form">
@@ -26,7 +28,7 @@ export function CreateInviteForm({ workspaceId }: { workspaceId: string }) {
           </select>
         </label>
       </div>
-      {state.message && <p className={`form-message form-message--${state.kind}`} role={state.kind === "error" ? "alert" : "status"}>{state.message}</p>}
+      {state.kind === "error" && state.message && <p className="form-message form-message--error" role="alert">{state.message}</p>}
       {state.link && <CopyInviteLink link={state.link} />}
       <button className="button button--primary" type="submit" disabled={pending}>{pending ? "Creating…" : "Create invite link"}</button>
     </form>
@@ -70,6 +72,7 @@ export function InviteList({ invites, now }: { invites: Invite[]; now: string })
 
 function InviteItem({ invite, now }: { invite: Invite; now: string }) {
   const [state, formAction, pending] = useActionState(revokeInviteAction, initialActionState);
+  useActionToast(state);
   const expired = Date.parse(invite.expires_at) <= Date.parse(now);
   const usedUp = invite.use_count >= invite.max_uses;
   const status = invite.revoked_at ? "Revoked" : expired ? "Expired" : usedUp ? "Used up" : "Available";
@@ -80,7 +83,7 @@ function InviteItem({ invite, now }: { invite: Invite; now: string }) {
       <div>
         <strong>{status}</strong>
         <span>{invite.use_count} of {invite.max_uses} uses · created {formatInviteExpiry(invite.created_at)} · expires {formatInviteExpiry(invite.expires_at)}</span>
-        {state.message && <small className="invite-state" role={state.kind === "error" ? "alert" : "status"}>{state.message}</small>}
+        {state.kind === "error" && state.message && <small className="invite-state" role="alert">{state.message}</small>}
       </div>
       {active && (
         <form action={formAction} onSubmit={(event) => { if (!window.confirm("Revoke this invitation? Anyone who has the link will no longer be able to join.")) event.preventDefault(); }}>

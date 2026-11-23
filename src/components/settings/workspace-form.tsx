@@ -2,12 +2,14 @@
 
 import { useActionState } from "react";
 
+import { useActionToast } from "@/components/ui/toast";
 import { TimezoneSelect } from "@/components/workspace/create-workspace-form";
 import { initialActionState } from "@/lib/forms/state";
 import { updateWorkspaceAction } from "@/lib/workspace/actions";
 
 export function WorkspaceForm({ workspaceId, name, timezone }: { workspaceId: string; name: string; timezone: string }) {
   const [state, formAction, pending] = useActionState(updateWorkspaceAction, initialActionState);
+  useActionToast(state);
 
   return (
     <form action={formAction} className="settings-form">
@@ -21,7 +23,7 @@ export function WorkspaceForm({ workspaceId, name, timezone }: { workspaceId: st
         <TimezoneSelect id="workspace-timezone-setting" name="timezone" value={timezone} />
         <span className="field-hint">Existing challenges keep the timezone they started with.</span>
       </label>
-      {state.message && <p className={`form-message form-message--${state.kind}`} role={state.kind === "error" ? "alert" : "status"}>{state.message}</p>}
+      {state.kind === "error" && state.message && <p className="form-message form-message--error" role="alert">{state.message}</p>}
       <button className="button button--secondary" type="submit" disabled={pending}>{pending ? "Saving…" : "Save workspace"}</button>
     </form>
   );

@@ -2,6 +2,7 @@
 
 import { useActionState, useId } from "react";
 
+import { useActionToast } from "@/components/ui/toast";
 import { initialActionState } from "@/lib/forms/state";
 import { updateChallengeAction } from "@/lib/workspace/actions";
 import type { WorkspaceDashboard } from "@/lib/data/dashboard";
@@ -10,6 +11,7 @@ type Challenge = NonNullable<WorkspaceDashboard["challenge"]>;
 
 export function ChallengeSettingsForm({ challenge, canEdit }: { challenge: Challenge; canEdit: boolean }) {
   const [state, formAction, pending] = useActionState(updateChallengeAction, initialActionState);
+  useActionToast(state);
   const id = useId();
   const titleId = `${id}-title`;
   const descriptionId = `${id}-description`;
@@ -43,7 +45,7 @@ export function ChallengeSettingsForm({ challenge, canEdit }: { challenge: Chall
         </div>
       )}
       {!canEdit && <p className="quiet-copy">Only a workspace owner can edit this challenge.</p>}
-      {state.message && <p className={`form-message form-message--${state.kind}`} role={state.kind === "error" ? "alert" : "status"}>{state.message}</p>}
+      {state.kind === "error" && state.message && <p className="form-message form-message--error" role="alert">{state.message}</p>}
       {canEdit && <button className="button button--secondary" type="submit" disabled={pending}>{pending ? "Saving…" : "Save challenge"}</button>}
     </form>
   );
